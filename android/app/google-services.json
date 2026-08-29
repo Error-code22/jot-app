@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "225991435330",
+    "project_id": "jot-notes-420cf",
+    "storage_bucket": "jot-notes-420cf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225991435330:android:8f8ae9dfebc30a8b44b9db",
+        "android_client_info": {
+          "package_name": "com.jotapp.jot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225991435330-839s11f1uqt6elojj89o2463p2eg3tnd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3kYaxw2GajN0Z44yEbExuI7qwRcVOrn4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225991435330-839s11f1uqt6elojj89o2463p2eg3tnd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "225991435330-d3b9vaa0cmtn12l297gej8vtf4numvlb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jotapp.jot"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225991435330:android:407a9c7698fa38d044b9db",
+        "android_client_info": {
+          "package_name": "com.jotapp.jot_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225991435330-839s11f1uqt6elojj89o2463p2eg3tnd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3kYaxw2GajN0Z44yEbExuI7qwRcVOrn4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225991435330-839s11f1uqt6elojj89o2463p2eg3tnd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "225991435330-d3b9vaa0cmtn12l297gej8vtf4numvlb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jotapp.jot"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

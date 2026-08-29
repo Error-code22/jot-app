@@ -1,0 +1,61 @@
+{
+  "projectName": "Jot? - Cross-Platform Notes App",
+  "projectType": "flutter",
+  "flutterVersion": "3.x",
+  "supportedPlatforms": [
+    "android",
+    "windows",
+    "linux",
+    "macos"
+  ],
+  "description": "A cross-platform notes application with Gmail authentication and cloud sync via Firebase",
+  "organization": "com.jotapp",
+  "packageName": "jot_app",
+  "features": {
+    "authentication": "Firebase Gmail Auth",
+    "cloudSync": "Firebase Firestore",
+    "localStorage": "SQLite with encryption",
+    "offlineSupport": true,
+    "multiPlatform": true
+  },
+  "dependencies": {
+    "firebase_core": "^2.24.2",
+    "firebase_auth": "^4.16.0",
+    "cloud_firestore": "^4.14.0",
+    "google_sign_in": "^6.2.1",
+    "sqflite": "^2.3.0",
+    "flutter_secure_storage": "^9.0.0",
+    "uuid": "^4.3.3",
+    "connectivity_plus": "^5.0.2"
+  },
+  "architecture": {
+    "pattern": "Service-based architecture",
+    "layers": [
+      "Presentation (UI)",
+      "Business Logic (Services)",
+      "Data (Local + Cloud)"
+    ],
+    "keyServices": [
+      "NoteService",
+      "SyncEngine",
+      "AuthService",
+      "LocalStorageService",
+      "FirestoreService"
+    ]
+  },
+  "sharedState": {
+    "currentPhase": "development",
+    "lastModified": "2026-03-12T16:00:00Z",
+    "developmentNotes": "LocalStorageService rebuilt and verified with unit tests. Project structure stabilized for synchronization development."
+  },
+  "ideCompatibility": {
+    "kiro": true,
+    "antigravity": true,
+    "cursor": true
+  },
+  "metadata": {
+    "created": "2026-03-08T14:00:00Z",
+    "lastModified": "2026-03-08T14:00:00Z",
+    "version": "1.0.0"
+  }
+}
