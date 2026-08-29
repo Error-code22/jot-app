@@ -76,8 +76,8 @@ Updated: 2026-06-03 (fixes applied)
 - **Note:** Consider moving to secure config before sharing publicly
 
 ### 13. Two different Firebase API keys
-- `firebase_options.dart`: `AIzaSyA3kYaxw2GajN0Z44yEbExuI7qwRcVOrn4`
-- `windows_auth_service.dart`: `AIzaSyDA7YWCAKfEa_emsGrw55zyumC9v2tuNeQ`
+- `firebase_options.dart`: `REDACTED_API_KEY`
+- `windows_auth_service.dart`: `REDACTED_API_KEY`
 - **Note:** Verify which key is correct for desktop auth
 
 ### 14. Weak PIN hashing

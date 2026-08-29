@@ -33,10 +33,10 @@ Today we successfully migrated the cloud storage backend from Firebase Firestore
 4. **UI Polishing:** Re-enable the "Masonry Grid" view once the base functionality is stable.
 
 ## 🔑 Project Metadata
-- **Firebase Project ID:** `jot-notes-420cf`
-- **Owner Account:** `reueldroner22@gmail.com`
-- **Telegram Bot:** `8727448930:AAGoZ4M57ovkPr0j4cBmxiTQFnsabd4g9BU`
-- **Telegram Chat ID:** `-1003461886227`
+- **Firebase Project ID:** `jot-notes-REDACTED`
+- **Owner Account:** `REDACTED@gmail.com`
+- **Telegram Bot:** `REDACTED_TELEGRAM_BOT_TOKEN`
+- **Telegram Chat ID:** `REDACTED_CHAT_ID`
 
 ---
 *Progress saved on April 2, 2026. See you tomorrow!*
