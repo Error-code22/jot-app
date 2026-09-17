@@ -683,6 +683,17 @@ class _TodoItemTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis));
     }
+    if (item.recurrence != Recurrence.none) {
+      final label = item.recurrence.name[0].toUpperCase() + item.recurrence.name.substring(1);
+      parts.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.repeat_rounded, size: 11, color: Colors.blue.shade300),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.blue.shade300)),
+        ],
+      ));
+    }
     if (parts.isEmpty) return null;
     return Wrap(spacing: 10, children: parts);
   }
@@ -702,6 +713,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   final _noteCtrl = TextEditingController();
   TodoPriority _priority = TodoPriority.none;
   DateTime? _dueDate;
+  Recurrence _recurrence = Recurrence.none;
 
   @override
   void dispose() {
@@ -727,7 +739,8 @@ class _AddItemSheetState extends State<_AddItemSheet> {
     await svc.addItem(widget.listId, text,
         dueDate: _dueDate,
         priority: _priority,
-        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim());
+        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+        recurrence: _recurrence);
     if (mounted) Navigator.pop(context);
   }
 
@@ -802,6 +815,22 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          // Recurrence row
+          const Text('Repeat', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: Recurrence.values.map((r) {
+              final selected = _recurrence == r;
+              final label = r == Recurrence.none ? 'None' : r.name[0].toUpperCase() + r.name.substring(1);
+              return ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) => setState(() => _recurrence = r),
+              );
+            }).toList(),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -831,6 +860,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
   late TextEditingController _noteCtrl;
   late TodoPriority _priority;
   DateTime? _dueDate;
+  late Recurrence _recurrence;
 
   @override
   void initState() {
@@ -839,6 +869,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     _noteCtrl = TextEditingController(text: widget.item.note ?? '');
     _priority = widget.item.priority;
     _dueDate = widget.item.dueDate;
+    _recurrence = widget.item.recurrence;
   }
 
   @override
@@ -869,6 +900,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
       clearDueDate: _dueDate == null && widget.item.dueDate != null,
       priority: _priority,
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+      recurrence: _recurrence,
     );
     if (mounted) Navigator.pop(context);
   }
@@ -931,6 +963,22 @@ class _EditItemSheetState extends State<_EditItemSheet> {
                 label: Text(_dueDate != null ? _formatDue(_dueDate!) : 'Pick date'),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          // Recurrence row
+          const Text('Repeat', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: Recurrence.values.map((r) {
+              final selected = _recurrence == r;
+              final label = r == Recurrence.none ? 'None' : r.name[0].toUpperCase() + r.name.substring(1);
+              return ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) => setState(() => _recurrence = r),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 20),
           SizedBox(
