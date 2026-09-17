@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/note_model.dart';
@@ -999,6 +1000,28 @@ class _NoteCard extends StatelessWidget {
                 child: const Icon(Icons.check, size: 16, color: Colors.white),
               ),
             ),
+          // Share button
+          if (!isSelected)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () {
+                  final title = note.title.isEmpty ? 'Jot? Note' : note.title;
+                  final content = note.content;
+                  Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
+                },
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: bgColor.withValues(alpha: 0.8),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.share_outlined, size: 14, color: textColor.withValues(alpha: 0.6)),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1200,10 +1223,10 @@ class _DesktopNoteEditorState extends State<_DesktopNoteEditor> {
                 icon: const Icon(Icons.delete_outline_rounded),
                 color: Colors.red,
               ),
-            ],
-          ),
-        ],
-      ),
+                    ],
+                  ),
+                ],
+              ),
     );
   }
 }
@@ -1328,6 +1351,18 @@ class _NoteListTile extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 11,
                               color: isDark ? Colors.grey : Colors.grey.shade500)),
+                      const SizedBox(width: 4),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert_rounded, size: 16, color: textColor.withValues(alpha: 0.5)),
+                        onSelected: (value) {
+                          if (value == 'share') _shareNote(context);
+                          if (value == 'delete') _deleteNote(context);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'share', child: Text('Share')),
+                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -1365,6 +1400,33 @@ class _NoteListTile extends StatelessWidget {
     if (now.difference(date).inDays == 0) return 'Today';
     if (now.difference(date).inDays == 1) return 'Yesterday';
     return '${date.day}/${date.month}';
+  }
+
+  void _shareNote(BuildContext context) {
+    final title = note.title.isEmpty ? 'Jot? Note' : note.title;
+    final content = note.content;
+    Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
+  }
+
+  void _deleteNote(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Note'),
+        content: const Text('This will remove the note from all your devices.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await Provider.of<NoteService>(context, listen: false).deleteNote(note);
+    }
   }
 }
 
@@ -1419,8 +1481,22 @@ class _NoteCompactTile extends StatelessWidget {
               style: TextStyle(
                   fontSize: 12, color: textColor.withValues(alpha: 0.6)),
             ),
-      trailing: Text(_formatDate(note.modifiedAt),
-          style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_formatDate(note.modifiedAt),
+              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              final title = note.title.isEmpty ? 'Jot? Note' : note.title;
+              final content = note.content;
+              Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
+            },
+            child: Icon(Icons.share_outlined, size: 16, color: textColor.withValues(alpha: 0.4)),
+          ),
+        ],
+      ),
     );
   }
 

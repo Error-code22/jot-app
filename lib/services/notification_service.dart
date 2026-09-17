@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'todo_service.dart';
 
 /// Service for scheduling and managing local notifications.
 /// Handles sync reminders and due-date alerts.
@@ -89,6 +90,49 @@ class NotificationService {
     );
     const details = NotificationDetails(android: androidDetails);
     await _plugin.show(id, title, body, details);
+  }
+
+  /// Check all todo lists for overdue or due-today items and send notifications.
+  Future<void> checkTodoDueDates(TodoService todoService) async {
+    if (!_initialized) return;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (final list in todoService.lists) {
+      for (final item in list.items) {
+        if (item.isDone || item.dueDate == null) continue;
+
+        final dueDay = DateTime(item.dueDate!.year, item.dueDate!.month, item.dueDate!.day);
+        final daysUntilDue = dueDay.difference(today).inDays;
+
+        if (daysUntilDue < 0) {
+          // Overdue
+          final id = item.id.hashCode.abs() % 2147483647;
+          await showDueSoonNotification(
+            id: id,
+            title: 'Overdue: ${item.text}',
+            body: '"${list.title}" was due ${-daysUntilDue} day${-daysUntilDue == 1 ? '' : 's'} ago',
+          );
+        } else if (daysUntilDue == 0) {
+          // Due today
+          final id = item.id.hashCode.abs() % 2147483647;
+          await showDueSoonNotification(
+            id: id,
+            title: 'Due today: ${item.text}',
+            body: 'In "${list.title}"',
+          );
+        } else if (daysUntilDue == 1) {
+          // Due tomorrow
+          final id = item.id.hashCode.abs() % 2147483647;
+          await showDueSoonNotification(
+            id: id,
+            title: 'Due tomorrow: ${item.text}',
+            body: 'In "${list.title}"',
+          );
+        }
+      }
+    }
   }
 
   /// Schedule a periodic reminder to check sync status.

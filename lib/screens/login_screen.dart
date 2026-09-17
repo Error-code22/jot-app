@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../services/i_auth_service.dart';
+import '../utils/adaptive_logo.dart';
 import '../widgets/jot_ui.dart';
 import 'terms_screen.dart';
 import 'support_screen.dart';
@@ -152,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               boxShadow: JotUI.premiumShadow(),
                             ),
                             child: Image.asset(
-                              'public/logo.png',
+                              adaptiveLogoPath(context),
                               width: 60,
                               height: 60,
                               errorBuilder: (context, error, stackTrace) => 

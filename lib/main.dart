@@ -54,6 +54,7 @@ class _JotAppState extends State<JotApp> {
     final syncScheduler = Provider.of<SyncScheduler>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
     final backgroundSync = Provider.of<BackgroundSyncService>(context, listen: false);
+    final todoService = Provider.of<TodoService>(context, listen: false);
 
     authService.authStateChanges.listen((authState) async {
       if (authState.isAuthenticated && authState.user != null) {
@@ -62,6 +63,8 @@ class _JotAppState extends State<JotApp> {
           syncScheduler.start(authState.user!.uid);
           await notificationService.requestPermission();
           await backgroundSync.schedulePeriodicSync();
+          // Check todo due dates on login
+          await notificationService.checkTodoDueDates(todoService);
         } catch (e) {
           debugPrint('Auth state listener error: $e');
         }

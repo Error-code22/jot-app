@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../models/note_model.dart';
 import '../services/note_service.dart';
@@ -583,6 +584,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           ),
           IconButton(icon: const Icon(Icons.palette_outlined), onPressed: _showColorPicker, tooltip: 'Note color'),
           IconButton(icon: const Icon(Icons.label_outline_rounded), onPressed: _showTagDialog, tooltip: 'Tags'),
+          IconButton(icon: const Icon(Icons.share_outlined), onPressed: _shareNote, tooltip: 'Share note'),
           if (_currentNote != null)
             IconButton(icon: const Icon(Icons.delete_outline_rounded), onPressed: _deleteNote),
           const SizedBox(width: 8),
@@ -813,6 +815,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareNote() async {
+    final title = _titleController.text.trim();
+    final content = _noteType == NoteType.text
+        ? _contentController.text
+        : _checklistItems.map((e) => '${e.isChecked ? '✅' : '⬜'} ${e.text}').join('\n');
+    final text = title.isEmpty ? content : '$title\n\n$content';
+    if (text.isEmpty) return;
+    await Share.share(text, subject: title.isEmpty ? 'Jot? Note' : title);
   }
 
   Future<void> _deleteNote() async {
