@@ -15,6 +15,7 @@ import '../services/cloudinary_service.dart';
 import '../services/image_compress_service.dart';
 import '../utils/view_mode_provider.dart';
 import '../utils/color_utils.dart';
+import '../utils/markdown_renderer.dart';
 
 // Note color palette
 const List<Map<String, dynamic>> kNoteColors = [
@@ -63,6 +64,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   final _tagController = TextEditingController();
   bool _isUnlocked = false;
   final _contentFocusNode = FocusNode();
+  bool _showPreview = false;
 
   @override
   void initState() {
@@ -630,8 +632,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                 style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: textColor),
                                 maxLines: 1,
                               ),
-                              if (_noteType == NoteType.text)
-                                TextField(
+                        if (_noteType == NoteType.text)
+                          _showPreview
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: RichText(
+                                    text: MarkdownRenderer.render(
+                                      _contentController.text.isEmpty ? 'Start writing...' : _contentController.text,
+                                      baseStyle: theme.textTheme.bodyLarge?.copyWith(
+                                        height: 1.6, fontSize: fontSize, color: textColor,
+                                      ) ?? const TextStyle(),
+                                    ),
+                                  ),
+                                )
+                              : TextField(
                                   controller: _contentController,
                                   focusNode: _contentFocusNode,
                                   decoration: InputDecoration(hintText: 'Start writing...', border: InputBorder.none,
@@ -640,8 +654,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   maxLines: null,
                                   keyboardType: TextInputType.multiline,
                                 )
-                              else
-                                _buildChecklistMode(),
+                        else
+                          _buildChecklistMode(),
                               if (_imageIds.isNotEmpty) ...[
                                 const SizedBox(height: 16),
                                 Wrap(
@@ -785,25 +799,32 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               // Formatting buttons (text mode only)
               if (_noteType == NoteType.text) ...[
                 IconButton(
-                  icon: Icon(Icons.format_bold_rounded, color: textColor.withValues(alpha: 0.5)),
-                  tooltip: 'Bold',
-                  onPressed: () => _wrapSelection('**', '**'),
+                  icon: Icon(Icons.preview_rounded, color: _showPreview ? theme.primaryColor : textColor.withValues(alpha: 0.5)),
+                  tooltip: _showPreview ? 'Edit mode' : 'Preview',
+                  onPressed: () => setState(() => _showPreview = !_showPreview),
                 ),
-                IconButton(
-                  icon: Icon(Icons.format_italic_rounded, color: textColor.withValues(alpha: 0.5)),
-                  tooltip: 'Italic',
-                  onPressed: () => _wrapSelection('_', '_'),
-                ),
-                IconButton(
-                  icon: Icon(Icons.title_rounded, color: textColor.withValues(alpha: 0.5)),
-                  tooltip: 'Heading',
-                  onPressed: _insertHeading,
-                ),
-                IconButton(
-                  icon: Icon(Icons.format_list_bulleted_rounded, color: textColor.withValues(alpha: 0.5)),
-                  tooltip: 'Bullet list',
-                  onPressed: _insertBulletList,
-                ),
+                if (!_showPreview) ...[
+                  IconButton(
+                    icon: Icon(Icons.format_bold_rounded, color: textColor.withValues(alpha: 0.5)),
+                    tooltip: 'Bold',
+                    onPressed: () => _wrapSelection('**', '**'),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.format_italic_rounded, color: textColor.withValues(alpha: 0.5)),
+                    tooltip: 'Italic',
+                    onPressed: () => _wrapSelection('_', '_'),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.title_rounded, color: textColor.withValues(alpha: 0.5)),
+                    tooltip: 'Heading',
+                    onPressed: _insertHeading,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.format_list_bulleted_rounded, color: textColor.withValues(alpha: 0.5)),
+                    tooltip: 'Bullet list',
+                    onPressed: _insertBulletList,
+                  ),
+                ],
                 const VerticalDivider(width: 16, indent: 8, endIndent: 8),
               ],
               Text(

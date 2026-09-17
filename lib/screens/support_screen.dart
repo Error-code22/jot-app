@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'feedback_screen.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
@@ -30,14 +31,14 @@ class SupportScreen extends StatelessWidget {
             icon: Icons.bug_report_outlined,
             title: 'Report a Bug',
             subtitle: 'Help us improve Jot?',
-            onTap: () => launchUrl(Uri.parse('https://github.com/Error-code22/jot-app/issues/new?template=bug_report.md')),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeedbackScreen())),
           ),
           const SizedBox(height: 12),
           _SupportTile(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Feature Request',
             subtitle: 'Suggest new features',
-            onTap: () => launchUrl(Uri.parse('https://github.com/Error-code22/jot-app/issues/new?template=feature_request.md')),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeedbackScreen())),
           ),
           const SizedBox(height: 32),
           

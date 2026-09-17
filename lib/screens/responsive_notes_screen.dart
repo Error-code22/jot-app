@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/note_model.dart';
 import '../services/note_service.dart';
 import '../services/i_auth_service.dart';
@@ -14,6 +13,7 @@ import '../widgets/sync_indicator.dart';
 import '../widgets/jot_ui.dart';
 import '../utils/theme_provider.dart';
 import '../utils/view_mode_provider.dart';
+import 'feedback_screen.dart';
 import '../utils/color_utils.dart';
 import 'note_editor_screen.dart';
 import 'settings_screen.dart';
@@ -289,6 +289,36 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                 onTap: () => setState(() => _fabExpanded = false),
                 child: Container(color: Colors.black.withValues(alpha: 0.4)),
               ),
+            // Batch operations toolbar
+            if (_isSelecting)
+              Positioned(
+                bottom: 70,
+                left: 16,
+                right: 16,
+                child: Card(
+                  elevation: 8,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text('${_selectedNoteIds.length} selected',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                          tooltip: 'Delete selected',
+                          onPressed: _batchDelete,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Cancel',
+                          onPressed: () => setState(() => _selectedNoteIds.clear()),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         bottomNavigationBar: BottomNavigationBar(
@@ -356,6 +386,35 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
         ),
       ],
     );
+  }
+
+  void _batchDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Notes'),
+        content: Text('Delete ${_selectedNoteIds.length} selected notes? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final noteService = Provider.of<NoteService>(context, listen: false);
+    final authService = Provider.of<IAuthService>(context, listen: false);
+    final user = authService.getCurrentUser();
+    if (user == null) return;
+    for (final noteId in _selectedNoteIds) {
+      final notes = await noteService.getAllNotes(user.uid);
+      final note = notes.where((n) => n.id == noteId).firstOrNull;
+      if (note != null) await noteService.deleteNote(note);
+    }
+    setState(() => _selectedNoteIds.clear());
   }
 
   Future<void> _createTodoList(String userId) async {
@@ -543,10 +602,12 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                         builder: (_) => const SettingsScreen()));
                   }
                   if (value == 'feature') {
-                    launchUrl(Uri.parse('https://github.com/reueldroner/jot-app/issues/new?template=feature_request.md'));
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const FeedbackScreen()));
                   }
                   if (value == 'bug') {
-                    launchUrl(Uri.parse('https://github.com/reueldroner/jot-app/issues/new?template=bug_report.md'));
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const FeedbackScreen()));
                   }
                 },
                 itemBuilder: (context) => [

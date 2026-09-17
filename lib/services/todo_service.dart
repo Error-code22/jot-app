@@ -112,6 +112,7 @@ class TodoService extends ChangeNotifier {
     DateTime? dueDate,
     TodoPriority priority = TodoPriority.none,
     String? note,
+    Recurrence recurrence = Recurrence.none,
   }) async {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
@@ -123,6 +124,7 @@ class TodoService extends ChangeNotifier {
       dueDate: dueDate,
       priority: priority,
       note: note,
+      recurrence: recurrence,
     );
     final updated = _lists[idx].copyWith(items: [..._lists[idx].items, item]);
     _lists[idx] = updated;
@@ -144,6 +146,7 @@ class TodoService extends ChangeNotifier {
     bool clearDueDate = false,
     TodoPriority? priority,
     String? note,
+    Recurrence? recurrence,
   }) async {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
@@ -155,6 +158,7 @@ class TodoService extends ChangeNotifier {
             clearDueDate: clearDueDate,
             priority: priority,
             note: note,
+            recurrence: recurrence,
           )
         : i).toList();
     final updated = _lists[idx].copyWith(items: items);
@@ -175,8 +179,35 @@ class TodoService extends ChangeNotifier {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
     final snapshot = List<TodoList>.from(_lists);
-    final items = _lists[idx].items.map((i) =>
-      i.id == itemId ? i.copyWith(isDone: !i.isDone) : i).toList();
+    final items = _lists[idx].items.map((i) {
+      if (i.id != itemId) return i;
+      final toggled = i.copyWith(isDone: !i.isDone);
+      // If marking done and has recurrence, schedule next occurrence
+      if (toggled.isDone && toggled.recurrence != Recurrence.none && toggled.nextRecurrenceDate != null) {
+        final nextItem = TodoItem(
+          id: _uuid.v4(),
+          text: toggled.text,
+          createdAt: DateTime.now(),
+          dueDate: toggled.nextRecurrenceDate,
+          priority: toggled.priority,
+          note: toggled.note,
+          recurrence: toggled.recurrence,
+        );
+        // We'll add it after toggling
+        Future.microtask(() async {
+          await addItem(listId, nextItem.text,
+            dueDate: nextItem.dueDate,
+            priority: nextItem.priority,
+            note: nextItem.note,
+          );
+          // Set recurrence on the new item
+          final newList = _lists.firstWhere((l) => l.id == listId);
+          final newItem = newList.items.last;
+          await updateItem(listId, newItem.id, recurrence: nextItem.recurrence);
+        });
+      }
+      return toggled;
+    }).toList();
     final updated = _lists[idx].copyWith(items: items);
     _lists[idx] = updated;
     try {

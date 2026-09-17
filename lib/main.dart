@@ -20,6 +20,7 @@ import 'services/backup_service.dart';
 import 'services/todo_service.dart';
 import 'services/notification_service.dart';
 import 'services/background_sync_service.dart';
+import 'services/feedback_service.dart';
 import 'utils/platform_theme.dart';
 import 'utils/theme_provider.dart';
 import 'utils/view_mode_provider.dart';
@@ -143,6 +144,7 @@ class _JotAppState extends State<JotApp> {
             Provider.value(value: providers['backupService'] as BackupService),
             Provider.value(value: providers['notificationService'] as NotificationService),
             Provider.value(value: providers['backgroundSync'] as BackgroundSyncService),
+            Provider.value(value: providers['feedbackService'] as FeedbackService),
             StreamProvider<AuthState>.value(
               value: (providers['authService'] as SupabaseService).authStateChanges,
               initialData: AuthState(

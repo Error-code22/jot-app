@@ -1,5 +1,7 @@
 enum TodoPriority { none, low, medium, high }
 
+enum Recurrence { none, daily, weekly, monthly, yearly }
+
 class TodoItem {
   final String id;
   final String text;
@@ -8,6 +10,7 @@ class TodoItem {
   final DateTime? dueDate;
   final TodoPriority priority;
   final String? note;
+  final Recurrence recurrence;
 
   TodoItem({
     required this.id,
@@ -17,6 +20,7 @@ class TodoItem {
     this.dueDate,
     this.priority = TodoPriority.none,
     this.note,
+    this.recurrence = Recurrence.none,
   });
 
   TodoItem copyWith({
@@ -26,6 +30,7 @@ class TodoItem {
     bool clearDueDate = false,
     TodoPriority? priority,
     String? note,
+    Recurrence? recurrence,
   }) => TodoItem(
     id: id,
     text: text ?? this.text,
@@ -34,10 +39,28 @@ class TodoItem {
     dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
     priority: priority ?? this.priority,
     note: note ?? this.note,
+    recurrence: recurrence ?? this.recurrence,
   );
 
   bool get isOverdue =>
       !isDone && dueDate != null && dueDate!.isBefore(DateTime.now());
+
+  /// If this item is done and has recurrence, returns the next occurrence date.
+  DateTime? get nextRecurrenceDate {
+    if (recurrence == Recurrence.none || dueDate == null) return null;
+    switch (recurrence) {
+      case Recurrence.daily:
+        return dueDate!.add(const Duration(days: 1));
+      case Recurrence.weekly:
+        return dueDate!.add(const Duration(days: 7));
+      case Recurrence.monthly:
+        return DateTime(dueDate!.year, dueDate!.month + 1, dueDate!.day);
+      case Recurrence.yearly:
+        return DateTime(dueDate!.year + 1, dueDate!.month, dueDate!.day);
+      default:
+        return null;
+    }
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -47,6 +70,7 @@ class TodoItem {
     'dueDate': dueDate?.toIso8601String(),
     'priority': priority.name,
     'note': note,
+    'recurrence': recurrence.name,
   };
 
   factory TodoItem.fromJson(Map<String, dynamic> j) => TodoItem(
@@ -60,6 +84,10 @@ class TodoItem {
       orElse: () => TodoPriority.none,
     ),
     note: j['note'] as String?,
+    recurrence: Recurrence.values.firstWhere(
+      (r) => r.name == (j['recurrence'] ?? 'none'),
+      orElse: () => Recurrence.none,
+    ),
   );
 }
 

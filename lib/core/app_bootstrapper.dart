@@ -18,6 +18,7 @@ import '../services/backup_service.dart';
 import '../services/todo_service.dart';
 import '../services/notification_service.dart';
 import '../services/background_sync_service.dart';
+import '../services/feedback_service.dart';
 
 class AppBootstrapper {
   static Future<Map<String, dynamic>> initialize() async {
@@ -76,6 +77,9 @@ class AppBootstrapper {
     );
     await backgroundSync.initialize();
 
+    // 13. Initialize Feedback Service
+    final feedbackService = FeedbackService();
+
     return {
       'authService': supabaseService,
       'localStorage': localStorage,
@@ -89,6 +93,7 @@ class AppBootstrapper {
       'todoService': todoService,
       'notificationService': notificationService,
       'backgroundSync': backgroundSync,
+      'feedbackService': feedbackService,
     };
   }
 }
