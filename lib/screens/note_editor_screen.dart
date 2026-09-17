@@ -555,7 +555,6 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         }
       },
       child: Scaffold(
-      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
         title: _buildSaveStatus(),
@@ -589,100 +588,109 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Container(
-        color: bgColor,
-        child: Column(
-          children: [
-            if (_tags.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                child: Wrap(
-                  spacing: 6,
-                  children: _tags.map((tag) => Chip(
-                    label: Text('#$tag', style: TextStyle(fontSize: 11, color: textColor)),
-                    visualDensity: VisualDensity.compact,
-                    onDeleted: () => _removeTag(tag),
-                  )).toList(),
-                ),
+      body: Column(
+        children: [
+          if (_tags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+              child: Wrap(
+                spacing: 6,
+                children: _tags.map((tag) => Chip(
+                  label: Text('#$tag', style: TextStyle(fontSize: 11, color: textColor)),
+                  visualDensity: VisualDensity.compact,
+                  onDeleted: () => _removeTag(tag),
+                )).toList(),
               ),
-            Expanded(
-              child: _isUnlocked
-                  ? SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _titleController,
-                          decoration: InputDecoration(hintText: 'Title', border: InputBorder.none,
-                            hintStyle: TextStyle(color: textColor.withValues(alpha: 0.4))),
-                          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: textColor),
-                          maxLines: 1,
-                        ),
-                        if (_noteType == NoteType.text)
-                          TextField(
-                            controller: _contentController,
-                            focusNode: _contentFocusNode,
-                            decoration: InputDecoration(hintText: 'Start writing...', border: InputBorder.none,
-                              hintStyle: TextStyle(color: textColor.withValues(alpha: 0.4))),
-                            style: theme.textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: fontSize, color: textColor),
-                            maxLines: null,
-                            keyboardType: TextInputType.multiline,
-                          )
-                        else
-                          _buildChecklistMode(),
-                        if (_imageIds.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _imageIds.take(10).map((fileId) {
-                              final url = _imageUrls[fileId];
-                              if (url != null) {
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    url,
-                                    width: 200,
-                                    height: 150,
-                                    cacheWidth: 400,
-                                    cacheHeight: 300,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
-                                  ),
-                                );
-                              } else {
-                                return const SizedBox(
-                                  width: 200,
-                                  height: 150,
-                                  child: Center(child: CircularProgressIndicator()),
-                                );
-                              }
-                            }).toList(),
+            ),
+          Expanded(
+            child: _isUnlocked
+                ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _titleController,
+                                decoration: InputDecoration(hintText: 'Title', border: InputBorder.none,
+                                  hintStyle: TextStyle(color: textColor.withValues(alpha: 0.4))),
+                                style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: textColor),
+                                maxLines: 1,
+                              ),
+                              if (_noteType == NoteType.text)
+                                TextField(
+                                  controller: _contentController,
+                                  focusNode: _contentFocusNode,
+                                  decoration: InputDecoration(hintText: 'Start writing...', border: InputBorder.none,
+                                    hintStyle: TextStyle(color: textColor.withValues(alpha: 0.4))),
+                                  style: theme.textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: fontSize, color: textColor),
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
+                                )
+                              else
+                                _buildChecklistMode(),
+                              if (_imageIds.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _imageIds.take(10).map((fileId) {
+                                    final url = _imageUrls[fileId];
+                                    if (url != null) {
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          url,
+                                          width: 200,
+                                          height: 150,
+                                          cacheWidth: 400,
+                                          cacheHeight: 300,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+                                        ),
+                                      );
+                                    } else {
+                                      return const SizedBox(
+                                        width: 200,
+                                        height: 150,
+                                        child: Center(child: CircularProgressIndicator()),
+                                      );
+                                    }
+                                  }).toList(),
+                                ),
+                              ],
+                            ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
+                    ),
                     ),
                   ),
+                )
+                : Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_rounded, size: 64, color: textColor.withValues(alpha: 0.3)),
+                    const SizedBox(height: 16),
+                    Text('This note is locked', style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 16)),
+                  ],
                 ),
-              )
-                  : Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.lock_rounded, size: 64, color: textColor.withValues(alpha: 0.3)),
-                      const SizedBox(height: 16),
-                      Text('This note is locked', style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 16)),
-                    ],
-                  ),
-                ),
-            ),
-            _buildToolbar(),
-          ],
-        ),
+              ),
+          ),
+          _buildToolbar(),
+        ],
       ),
       ), // PopScope
     );
