@@ -13,15 +13,15 @@ class TermsScreen extends StatelessWidget {
         padding: EdgeInsets.all(24),
         child: _LegalContent(
           title: 'Terms of Service',
-          lastUpdated: 'April 16, 2026',
+          lastUpdated: 'September 17, 2026',
           sections: [
             _Section('1. Acceptance of Terms',
               'By using Jot?, you agree to these Terms of Service. If you do not agree, please do not use the app.'),
             _Section('2. Description of Service',
               'Jot? is a cross-platform notes application that allows you to create, edit, and sync notes across your devices. '
-              'The service includes local storage, cloud synchronization via Firebase, and Google account authentication.'),
+              'The service includes local storage, cloud synchronization via Supabase, and email/password authentication.'),
             _Section('3. User Accounts',
-              'You must sign in with a valid Google account to use cloud sync features. You are responsible for maintaining '
+              'You must create an account with a valid email address to use cloud sync features. You are responsible for maintaining '
               'the security of your account. You must not share your account credentials with others.'),
             _Section('4. Your Content',
               'You retain full ownership of all notes and content you create in Jot?. We do not claim any ownership over '
@@ -30,7 +30,7 @@ class TermsScreen extends StatelessWidget {
               'You agree not to use Jot? to store or transmit illegal content, malware, or content that violates the rights '
               'of others. You agree not to attempt to reverse engineer, hack, or disrupt the service.'),
             _Section('6. Data Storage',
-              'Your notes are stored locally on your device and optionally synced to Firebase Firestore. '
+              'Your notes are stored locally on your device and optionally synced to Supabase cloud storage. '
               'You can delete your data at any time by deleting your notes or your account.'),
             _Section('7. Service Availability',
               'We strive to keep Jot? available at all times but do not guarantee uninterrupted access. '
@@ -63,11 +63,11 @@ class PrivacyScreen extends StatelessWidget {
         padding: EdgeInsets.all(24),
         child: _LegalContent(
           title: 'Privacy Policy',
-          lastUpdated: 'April 16, 2026',
+          lastUpdated: 'September 17, 2026',
           sections: [
             _Section('1. Information We Collect',
               'We collect the following information when you use Jot?:\n\n'
-              '• Google account information (name, email, profile photo) when you sign in\n'
+              '• Email address when you create an account\n'
               '• Notes content you create and store in the app\n'
               '• Device information for app functionality\n'
               '• Usage data to improve the app'),
@@ -81,15 +81,15 @@ class PrivacyScreen extends StatelessWidget {
             _Section('3. Data Storage',
               'Your notes are stored:\n\n'
               '• Locally on your device using SQLite\n'
-              '• In Firebase Firestore (Google Cloud) when cloud sync is enabled\n\n'
-              'Firebase Firestore is hosted in europe-west1 and complies with GDPR.'),
+              '• In Supabase cloud storage (hosted on AWS) when cloud sync is enabled\n\n'
+              'Supabase uses Row Level Security to ensure only you can access your notes.'),
             _Section('4. Data Sharing',
               'We do not sell, trade, or share your personal data with third parties except:\n\n'
-              '• Firebase/Google Cloud for storage and authentication (see Google\'s Privacy Policy)\n'
+              '• Supabase for cloud storage and authentication\n'
               '• When required by law'),
             _Section('5. Data Security',
               'We implement security measures including:\n\n'
-              '• Firestore security rules ensuring only you can access your notes\n'
+              '• Row Level Security policies ensuring only you can access your notes\n'
               '• Secure credential storage using platform keychain\n'
               '• HTTPS/TLS for all data transmission'),
             _Section('6. Your Rights',

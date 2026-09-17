@@ -49,6 +49,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() { _isLoading = true; _errorMessage = null; });
+    try {
+      final authService = Provider.of<IAuthService>(context, listen: false);
+      final result = await authService.signInWithGmail();
+      if (!mounted) return;
+      if (result.success) {
+        Navigator.of(context).pushReplacementNamed('/notes');
+      } else {
+        setState(() { _errorMessage = result.errorMessage; _isLoading = false; });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _errorMessage = 'Google Sign-In failed'; _isLoading = false; });
+    }
+  }
+
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -263,6 +280,39 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                       ),
                                     ),
                                   ),
+                                
+                                const SizedBox(height: 16),
+                                
+                                // Divider
+                                Row(
+                                  children: [
+                                    const Expanded(child: Divider()),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text('or', style: TextStyle(
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        fontSize: 13,
+                                      )),
+                                    ),
+                                    const Expanded(child: Divider()),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                
+                                // Google Sign-In button
+                                OutlinedButton.icon(
+                                  onPressed: _isLoading ? null : _handleGoogleSignIn,
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    side: BorderSide(color: theme.colorScheme.outline),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.g_mobiledata_rounded, size: 24),
+                                  label: const Text('Continue with Google',
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                                ),
                                 
                                 const SizedBox(height: 16),
                                 

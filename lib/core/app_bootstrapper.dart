@@ -16,6 +16,8 @@ import '../services/cloudinary_service.dart';
 import '../services/image_compress_service.dart';
 import '../services/backup_service.dart';
 import '../services/todo_service.dart';
+import '../services/notification_service.dart';
+import '../services/background_sync_service.dart';
 
 class AppBootstrapper {
   static Future<Map<String, dynamic>> initialize() async {
@@ -64,6 +66,16 @@ class AppBootstrapper {
     // 10. Initialize Todo Service
     final todoService = TodoService();
 
+    // 11. Initialize Notification Service
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+
+    // 12. Initialize Background Sync Service
+    final backgroundSync = BackgroundSyncService(
+      notificationService: notificationService,
+    );
+    await backgroundSync.initialize();
+
     return {
       'authService': supabaseService,
       'localStorage': localStorage,
@@ -75,6 +87,8 @@ class AppBootstrapper {
       'imageCompressor': imageCompressor,
       'backupService': backupService,
       'todoService': todoService,
+      'notificationService': notificationService,
+      'backgroundSync': backgroundSync,
     };
   }
 }

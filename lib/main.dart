@@ -18,6 +18,8 @@ import 'services/cloudinary_service.dart';
 import 'services/image_compress_service.dart';
 import 'services/backup_service.dart';
 import 'services/todo_service.dart';
+import 'services/notification_service.dart';
+import 'services/background_sync_service.dart';
 import 'utils/platform_theme.dart';
 import 'utils/theme_provider.dart';
 import 'utils/view_mode_provider.dart';
@@ -50,12 +52,16 @@ class _JotAppState extends State<JotApp> {
     final authService = Provider.of<SupabaseService>(context, listen: false);
     final syncEngine = Provider.of<SyncEngine>(context, listen: false);
     final syncScheduler = Provider.of<SyncScheduler>(context, listen: false);
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    final backgroundSync = Provider.of<BackgroundSyncService>(context, listen: false);
 
     authService.authStateChanges.listen((authState) async {
       if (authState.isAuthenticated && authState.user != null) {
         try {
           await syncEngine.start(authState.user!.uid);
           syncScheduler.start(authState.user!.uid);
+          await notificationService.requestPermission();
+          await backgroundSync.schedulePeriodicSync();
         } catch (e) {
           debugPrint('Auth state listener error: $e');
         }
@@ -63,6 +69,7 @@ class _JotAppState extends State<JotApp> {
         try {
           await syncEngine.stop();
           syncScheduler.stop();
+          await backgroundSync.cancelAll();
         } catch (e) {
           debugPrint('Auth state listener error: $e');
         }
@@ -131,6 +138,8 @@ class _JotAppState extends State<JotApp> {
             Provider.value(value: providers['cloudinary'] as CloudinaryService),
             Provider.value(value: providers['imageCompressor'] as ImageCompressService),
             Provider.value(value: providers['backupService'] as BackupService),
+            Provider.value(value: providers['notificationService'] as NotificationService),
+            Provider.value(value: providers['backgroundSync'] as BackgroundSyncService),
             StreamProvider<AuthState>.value(
               value: (providers['authService'] as SupabaseService).authStateChanges,
               initialData: AuthState(

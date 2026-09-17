@@ -153,10 +153,19 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
 
   @override
   Future<AuthResult> signInWithGmail() async {
-    return AuthResult(
-      success: false,
-      errorMessage: 'Google Sign-In is not configured yet. Please use email and password.',
-    );
+    try {
+      final result = await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'io.supabase.jotapp://login-callback/',
+      );
+      
+      if (result) {
+        return AuthResult(success: true);
+      }
+      return AuthResult(success: false, errorMessage: 'Google Sign-In was cancelled');
+    } catch (e) {
+      return AuthResult(success: false, errorMessage: 'Google Sign-In failed: ${e.toString()}');
+    }
   }
 
   // ── Remote Storage Methods ──────────────────────────────────────────────

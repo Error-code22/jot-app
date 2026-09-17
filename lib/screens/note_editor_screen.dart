@@ -319,6 +319,64 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _autoSave();
   }
 
+  void _wrapSelection(String before, String after) {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    if (!selection.isValid) return;
+    
+    final selectedText = text.substring(selection.start, selection.end);
+    final newText = text.replaceRange(selection.start, selection.end, '$before$selectedText$after');
+    _contentController.text = newText;
+    _contentController.selection = TextSelection.collapsed(
+      offset: selection.end + before.length + after.length,
+    );
+    _onTextChanged();
+  }
+
+  void _insertHeading() {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    if (!selection.isValid) return;
+    
+    // Find start of current line
+    final lineStart = text.lastIndexOf('\n', selection.start - 1) + 1;
+    final prefix = text.substring(lineStart, selection.start);
+    
+    // Cycle through heading levels: # → ## → ### → (remove)
+    String newPrefix;
+    if (prefix.startsWith('### ')) {
+      newPrefix = '';
+    } else if (prefix.startsWith('## ')) {
+      newPrefix = '### ';
+    } else if (prefix.startsWith('# ')) {
+      newPrefix = '## ';
+    } else {
+      newPrefix = '# ';
+    }
+    
+    final newText = text.replaceRange(lineStart, selection.start, newPrefix);
+    _contentController.text = newText;
+    _contentController.selection = TextSelection.collapsed(
+      offset: selection.start - prefix.length + newPrefix.length,
+    );
+    _onTextChanged();
+  }
+
+  void _insertBulletList() {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    if (!selection.isValid) return;
+    
+    // Insert at start of current line
+    final lineStart = text.lastIndexOf('\n', selection.start - 1) + 1;
+    final newText = text.replaceRange(lineStart, lineStart, '• ');
+    _contentController.text = newText;
+    _contentController.selection = TextSelection.collapsed(
+      offset: selection.start + 2,
+    );
+    _onTextChanged();
+  }
+
   Future<void> _promptUnlockOnOpen() async {
     if (!mounted) return;
     final pin = await _showPinInput(verify: true);
@@ -714,6 +772,30 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 onPressed: _pickAndUploadImage,
               ),
               const VerticalDivider(width: 16, indent: 8, endIndent: 8),
+              // Formatting buttons (text mode only)
+              if (_noteType == NoteType.text) ...[
+                IconButton(
+                  icon: Icon(Icons.format_bold_rounded, color: textColor.withValues(alpha: 0.5)),
+                  tooltip: 'Bold',
+                  onPressed: () => _wrapSelection('**', '**'),
+                ),
+                IconButton(
+                  icon: Icon(Icons.format_italic_rounded, color: textColor.withValues(alpha: 0.5)),
+                  tooltip: 'Italic',
+                  onPressed: () => _wrapSelection('_', '_'),
+                ),
+                IconButton(
+                  icon: Icon(Icons.title_rounded, color: textColor.withValues(alpha: 0.5)),
+                  tooltip: 'Heading',
+                  onPressed: _insertHeading,
+                ),
+                IconButton(
+                  icon: Icon(Icons.format_list_bulleted_rounded, color: textColor.withValues(alpha: 0.5)),
+                  tooltip: 'Bullet list',
+                  onPressed: _insertBulletList,
+                ),
+                const VerticalDivider(width: 16, indent: 8, endIndent: 8),
+              ],
               Text(
                 '${_contentController.text.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length} words',
                 style: TextStyle(fontSize: 12, color: textColor.withValues(alpha: 0.5)),

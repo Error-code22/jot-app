@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
@@ -22,21 +23,21 @@ class SupportScreen extends StatelessWidget {
             icon: Icons.email_outlined,
             title: 'Email Support',
             subtitle: 'reueldroner22@gmail.com',
-            onTap: () {},
+            onTap: () => launchUrl(Uri.parse('mailto:reueldroner22@gmail.com?subject=Jot%3F%20Support')),
           ),
           const SizedBox(height: 12),
           _SupportTile(
             icon: Icons.bug_report_outlined,
             title: 'Report a Bug',
             subtitle: 'Help us improve Jot?',
-            onTap: () {},
+            onTap: () => launchUrl(Uri.parse('https://github.com/Error-code22/jot-app/issues/new?template=bug_report.md')),
           ),
           const SizedBox(height: 12),
           _SupportTile(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Feature Request',
             subtitle: 'Suggest new features',
-            onTap: () {},
+            onTap: () => launchUrl(Uri.parse('https://github.com/Error-code22/jot-app/issues/new?template=feature_request.md')),
           ),
           const SizedBox(height: 32),
           
@@ -44,11 +45,11 @@ class SupportScreen extends StatelessWidget {
           const SizedBox(height: 12),
           const Text(
             'Jot? is a privacy-focused, cross-platform notes app designed to capture your thoughts elegantly. '
-            'Your notes are stored locally and synced securely to the cloud.',
+            'Your notes are stored locally and synced securely to the cloud via Supabase.',
             style: TextStyle(height: 1.6),
           ),
           const SizedBox(height: 16),
-          const Text('Version 1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text('Version 2.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );

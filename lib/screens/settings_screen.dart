@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
 import '../utils/view_mode_provider.dart';
+import '../services/backup_service.dart';
+import '../services/i_auth_service.dart';
 import 'import_screen.dart';
 import 'support_screen.dart';
 import 'terms_screen.dart';
@@ -108,10 +110,79 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
+          // Backup & Export
+          const _SectionHeader('Backup & Export'),
+          const SizedBox(height: 12),
+          _SettingsTile(
+            icon: Icons.backup_outlined,
+            title: 'Export as JSON',
+            subtitle: 'Export all notes as a JSON file',
+            onTap: () async {
+              final backup = Provider.of<BackupService>(context, listen: false);
+              final auth = Provider.of<IAuthService>(context, listen: false);
+              final user = auth.getCurrentUser();
+              if (user == null) return;
+              try {
+                await backup.exportNotesAsJson(user.uid);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notes exported as JSON')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Export failed: $e')),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          _SettingsTile(
+            icon: Icons.archive_outlined,
+            title: 'Export as ZIP',
+            subtitle: 'Export all notes as a compressed archive',
+            onTap: () async {
+              final backup = Provider.of<BackupService>(context, listen: false);
+              final auth = Provider.of<IAuthService>(context, listen: false);
+              final user = auth.getCurrentUser();
+              if (user == null) return;
+              try {
+                final file = await backup.exportNotesAsZip(user.uid);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Backup saved to ${file.path}')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Export failed: $e')),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          _SettingsTile(
+            icon: Icons.share_outlined,
+            title: 'Share Backup',
+            subtitle: 'Share notes backup with other apps',
+            onTap: () async {
+              final backup = Provider.of<BackupService>(context, listen: false);
+              final auth = Provider.of<IAuthService>(context, listen: false);
+              final user = auth.getCurrentUser();
+              if (user == null) return;
+              await backup.shareNotesAsJson(user.uid);
+            },
+          ),
+          const SizedBox(height: 32),
+
           // About
           const _SectionHeader('About'),
           const SizedBox(height: 12),
-          const _SettingsTile(icon: Icons.info_outline_rounded, title: 'Version', trailing: Text('1.0.0', style: TextStyle(color: Colors.grey))),
+          const _SettingsTile(icon: Icons.info_outline_rounded, title: 'Version', trailing: Text('2.0.0', style: TextStyle(color: Colors.grey))),
           const SizedBox(height: 8),
           _SettingsTile(icon: Icons.help_outline_rounded, title: 'Support',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportScreen()))),

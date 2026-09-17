@@ -1,104 +1,105 @@
 # Jot? - Cross-Platform Notes App
 
-A Flutter-based notes application with Gmail authentication and cloud synchronization across Android and Desktop platforms (Windows, Linux, macOS).
+A Flutter-based notes application with Supabase cloud sync, image uploads, and a Samsung Notes-inspired UI across Android and Desktop (Windows).
 
 ## Features
 
-- **Gmail Authentication**: Sign in with your Gmail account via Firebase Authentication
-- **Cloud Sync**: Automatic synchronization of notes across all your devices using Firebase Firestore
+- **Email Authentication**: Sign in with email/password via Supabase Auth
+- **Cloud Sync**: Automatic bidirectional synchronization across devices using Supabase
+- **Image Attachments**: Pick, compress, and upload images via Cloudinary (through Supabase Edge Function)
 - **Offline Support**: Create, edit, and delete notes without internet connectivity
-- **Multi-Platform**: Runs on Android, Windows, Linux, and macOS
-- **Secure Storage**: Local notes encrypted with SQLite, credentials stored securely
-- **Conflict Resolution**: Automatic conflict resolution using "most recent wins" strategy
+- **Multi-Platform**: Runs on Android and Windows
+- **Conflict Resolution**: Automatic conflict detection with last-write-wins resolution
+- **Note Organization**: Tags, colors, pinning, search, and tag filtering
+- **PIN Lock**: Protect sensitive notes with a PIN
+- **Checklists**: Toggle between text and checklist note types
+- **Todo System**: Separate todo lists with priorities, due dates, and progress tracking
+- **Dark/Light Themes**: Platform-adaptive theming with system, light, and dark modes
+- **3 View Modes**: Grid (masonry), List (with thumbnails), and Compact
+- **Backup/Export**: Export notes as JSON or ZIP, share with other apps
+- **Import**: Import .txt, .md files or entire folders with drag-and-drop
 
 ## Architecture
 
-The app follows a service-based architecture with three main layers:
+The app follows a service-based architecture with dependency injection via Provider:
 
-1. **Presentation Layer**: Flutter UI components (screens and widgets)
-2. **Business Logic Layer**: Services for note management, sync, and authentication
-3. **Data Layer**: Local SQLite database and Firebase Firestore cloud storage
+1. **Presentation Layer**: Flutter UI screens and widgets
+2. **Business Logic Layer**: Services for notes, sync, auth, todos, backup, and imports
+3. **Data Layer**: Local SQLite database + Supabase cloud storage
 
-## Setup Instructions
+## Setup
 
 ### Prerequisites
 
 - Flutter SDK 3.x or higher
-- Firebase project with Authentication and Firestore enabled
-- Android Studio (for Android development)
+- Supabase project (free tier works)
 - Visual Studio (for Windows development)
-- Xcode (for macOS development)
+- Android Studio (for Android development)
 
-### Firebase Configuration
+### Supabase Configuration
 
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Firebase Authentication with Google Sign-In provider
-3. Enable Cloud Firestore database
-4. Download configuration files:
-   - For Android: Download `google-services.json` and place in `android/app/`
-   - For other platforms: Run `flutterfire configure` to generate `lib/firebase_options.dart`
+1. Create a project at [Supabase](https://supabase.com)
+2. Run the migration in `supabase/migrations/001_create_notes_table.sql`
+3. Deploy the Edge Function: `supabase functions deploy image-proxy`
+4. Set Cloudinary secrets: `supabase secrets set CLOUDINARY_CLOUD_NAME=xxx CLOUDINARY_UPLOAD_PRESET=xxx`
+5. Update `lib/config.dart` with your Supabase URL and anon key
 
 ### Installation
 
 1. Clone the repository
-2. Navigate to the project directory: `cd flutter-projects/jot_app`
-3. Install dependencies: `flutter pub get`
-4. Configure Firebase (see above)
-5. Run the app: `flutter run`
+2. Install dependencies: `flutter pub get`
+3. Run the app: `flutter run`
 
 ## Project Structure
 
 ```
 lib/
-├── main.dart                    # Application entry point
-├── firebase_options.dart        # Firebase configuration
-├── services/                    # Business logic services
+├── main.dart                    # Entry point
+├── config.dart                  # Supabase configuration
+├── core/                        # App bootstrapper
+├── services/                    # Business logic (auth, sync, notes, todos, backup)
 ├── models/                      # Data models
 ├── screens/                     # UI screens
 ├── widgets/                     # Reusable UI components
-└── utils/                       # Utility functions
+└── utils/                       # Utilities (theme, colors, connectivity)
 
-public/                          # Public assets
-├── logo.png
-└── images/
+supabase/
+├── functions/image-proxy/       # Edge Function for Cloudinary uploads
+└── migrations/                  # SQL migrations
 
-test/                            # Tests
+test/
 ├── unit/                        # Unit tests
-├── property/                    # Property-based tests
 ├── integration/                 # Integration tests
 └── widget/                      # Widget tests
 ```
 
-## Dependencies
+## Key Dependencies
 
-- **firebase_core**: Firebase SDK initialization
-- **firebase_auth**: Firebase Authentication
-- **cloud_firestore**: Cloud Firestore database
-- **google_sign_in**: Google Sign-In for authentication
-- **sqflite**: SQLite local database
-- **flutter_secure_storage**: Secure credential storage
-- **uuid**: Unique identifier generation
-- **connectivity_plus**: Network connectivity detection
-
-## Development
-
-This project uses multi-IDE collaboration support. The `.ide-collaboration.json` file contains shared project metadata readable by Kiro, Antigravity, and Cursor IDEs.
-
-Development progress is tracked in `PROGRESS.md` using an append-only format.
+- **supabase_flutter**: Auth, database, realtime sync
+- **sqflite**: Local SQLite database
+- **image_picker + flutter_image_compress**: Image handling
+- **provider**: State management
+- **flutter_staggered_grid_view**: Masonry grid layout
+- **google_fonts**: Custom typography (Outfit + Inter)
+- **url_launcher**: External links
+- **connectivity_plus**: Network monitoring
 
 ## Testing
 
-Run tests with:
-- Unit tests: `flutter test test/unit`
-- Property tests: `flutter test test/property`
-- Integration tests: `flutter test test/integration`
-- Widget tests: `flutter test test/widget`
-- All tests: `flutter test`
+```bash
+flutter test                    # All 195 tests
+flutter test test/unit          # Unit tests only
+flutter test test/widget        # Widget tests only
+flutter test test/integration   # Integration tests only
+```
+
+## Building
+
+```bash
+flutter build apk --release     # Android APK
+flutter build windows --release # Windows EXE
+```
 
 ## License
 
 [Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
