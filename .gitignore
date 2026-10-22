@@ -78,6 +78,9 @@ firebase-debug.log
 firestore-debug.log
 firebase-debug.*.log
 
+# Release artifacts
+/dist/
+
 # Logs
 *.log
 jot_crash.log

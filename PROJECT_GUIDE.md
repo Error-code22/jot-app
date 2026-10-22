@@ -213,12 +213,18 @@ flutter analyze
 flutter test
 flutter run -d windows
 
-flutter build windows --release     # → build\windows\x64\runner\Release (exe + data/)
+flutter build windows --release     # → build\windows\x64\runner\Release (complete bundle)
 flutter build apk --release         # → build\app\outputs\flutter-apk\app-release.apk
 ```
 
-Windows: the built exe needs `sqlite3.dll` beside it (bundled via `windows/libs/` + CMake
-install rule) and the `data/` layout (icudtl.dat, flutter_assets). Do not run with
+The Windows **install prefix is the runner bundle directory** (`runner\Release`), matching
+Flutter's template, so the plugin DLLs, `data\flutter_assets` and `data\app.so` land beside
+`jot_app.exe`. Run the app from there (or via `flutter run -d windows`). An earlier version
+of this project forced the prefix to a separate `build\windows\x64\install` folder, which is
+why launching `runner\Release\jot_app.exe` used to fail with missing `*_plugin.dll` errors.
+
+Windows: the built exe needs `sqlite3.dll` beside it (bundled via `windows/libs/` + the CMake
+install rule) and the `data/` layout (icudtl.dat, flutter_assets, app.so). Do not run with
 RivaTuner/MSI Afterburner or Windhawk — their DLL injection crashes Flutter.
 
 **Windows build fix (MSVC 14.51 / Visual Studio 18):** `local_auth_windows 2.0.2` compiles

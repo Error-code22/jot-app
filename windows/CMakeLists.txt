@@ -58,41 +58,56 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
-# Set the install prefix - must be set before project() or forced here
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path" FORCE)
+# === Installation ===
+# Support files are copied into place next to the executable, so that it can
+# run in place (this is what `flutter run` launches). Keeping the install prefix
+# at the runner bundle dir means the plugin DLLs, assets and AOT data all land
+# beside jot_app.exe instead of a separate folder that would be missing them.
+set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
+# Make the "install" step default, as it's required to run.
+set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
+endif()
+
+set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
+set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
-install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${CMAKE_INSTALL_PREFIX}"
+install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
-install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${CMAKE_INSTALL_PREFIX}/data"
+install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 
 if(FLUTTER_LIBRARY_HEADERS)
-  install(FILES "${FLUTTER_LIBRARY_HEADERS}" DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  install(FILES "${FLUTTER_LIBRARY_HEADERS}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Development)
 endif()
 
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
 
 # Bundle sqlite3.dll (required by sqflite_common_ffi)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libs/sqlite3.dll"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
-# Install the Flutter data directory (app.so + flutter_assets)
-# Use OPTIONAL to handle cases where app.so may not exist (debug builds)
-install(FILES "${AOT_LIBRARY}" DESTINATION "${CMAKE_INSTALL_PREFIX}/data"
-  COMPONENT Runtime
-  OPTIONAL)
+# Fully re-copy the assets directory on each build to avoid stale files from a
+# previous install.
+set(FLUTTER_ASSET_DIR_NAME "flutter_assets")
+install(CODE "
+  file(REMOVE_RECURSE \"${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}\")
+  " COMPONENT Runtime)
+install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
 
-install(DIRECTORY "${PROJECT_BUILD_DIR}flutter_assets"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}/data"
-  COMPONENT Runtime
-  OPTIONAL)
+# Install the AOT library on non-Debug builds only (app.so).
+install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  CONFIGURATIONS Profile;Release
+  COMPONENT Runtime)
