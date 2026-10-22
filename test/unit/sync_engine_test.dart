@@ -20,8 +20,10 @@ void main() {
     mockRemote = MockIRemoteStorageService();
     mockConnectivity = MockConnectivity();
 
-    when(mockConnectivity.onConnectivityChanged).thenAnswer((_) => Stream.value(ConnectivityResult.wifi));
-    when(mockConnectivity.checkConnectivity()).thenAnswer((_) async => ConnectivityResult.wifi);
+    when(mockConnectivity.onConnectivityChanged)
+        .thenAnswer((_) => Stream.value(ConnectivityResult.wifi));
+    when(mockConnectivity.checkConnectivity())
+        .thenAnswer((_) async => ConnectivityResult.wifi);
 
     syncEngine = SyncEngine(
       mockLocal,
@@ -33,7 +35,8 @@ void main() {
   group('SyncEngine Conflict Resolution', () {
     const userId = 'user1';
 
-    test('syncNow pulls cloud changes and resolves conflict (cloud wins)', () async {
+    test('syncNow pulls cloud changes and resolves conflict (cloud wins)',
+        () async {
       final now = DateTime.now();
       final localNote = Note(
         id: '1',
@@ -52,13 +55,17 @@ void main() {
         modifiedAt: now,
       );
 
-      when(mockRemote.downloadAllNotes(userId)).thenAnswer((_) async => [cloudNote]);
+      when(mockRemote.downloadAllNotes(userId))
+          .thenAnswer((_) async => [cloudNote]);
       when(mockLocal.getNoteById('1')).thenAnswer((_) async => localNote);
-      when(mockLocal.getNotesModifiedAfter(any, userId)).thenAnswer((_) async => []);
+      when(mockLocal.getNotesModifiedAfter(any, userId))
+          .thenAnswer((_) async => []);
 
       await syncEngine.syncNow(userId);
 
-      verify(mockLocal.insertNote(argThat(predicate((Note n) => n.title == 'Cloud version')))).called(1);
+      verify(mockLocal.insertNote(
+              argThat(predicate((Note n) => n.title == 'Cloud version'))))
+          .called(1);
     });
 
     test('syncNow pushes local changes to cloud', () async {
@@ -72,7 +79,8 @@ void main() {
       );
 
       when(mockRemote.downloadAllNotes(userId)).thenAnswer((_) async => []);
-      when(mockLocal.getAllNotesForSync(userId)).thenAnswer((_) async => [note]);
+      when(mockLocal.getAllNotesForSync(userId))
+          .thenAnswer((_) async => [note]);
 
       await syncEngine.syncNow(userId);
 

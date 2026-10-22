@@ -8,7 +8,7 @@ void main() {
 
     setUp(() {
       testLastSyncTime = DateTime(2024, 1, 1, 12, 0, 0);
-      
+
       testSyncState = SyncState(
         status: SyncStatus.success,
         lastSyncTime: testLastSyncTime,
@@ -39,7 +39,7 @@ void main() {
           pendingChanges: 10,
           errorMessage: 'Test error',
         );
-        
+
         expect(syncState.status, equals(SyncStatus.syncing));
         expect(syncState.lastSyncTime, equals(testLastSyncTime));
         expect(syncState.pendingChanges, equals(10));
@@ -50,7 +50,7 @@ void main() {
         final syncState = SyncState(
           status: SyncStatus.idle,
         );
-        
+
         expect(syncState.status, equals(SyncStatus.idle));
         expect(syncState.lastSyncTime, isNull);
         expect(syncState.pendingChanges, equals(0));
@@ -62,7 +62,7 @@ void main() {
           status: SyncStatus.success,
           lastSyncTime: testLastSyncTime,
         );
-        
+
         expect(syncState.pendingChanges, equals(0));
       });
 
@@ -70,7 +70,7 @@ void main() {
         final syncState = SyncState(
           status: SyncStatus.offline,
         );
-        
+
         expect(syncState.status, equals(SyncStatus.offline));
         expect(syncState.lastSyncTime, isNull);
         expect(syncState.pendingChanges, equals(0));
@@ -112,7 +112,8 @@ void main() {
         expect(syncState.hasPendingChanges, isFalse);
       });
 
-      test('hasPendingChanges returns true when pendingChanges is positive', () {
+      test('hasPendingChanges returns true when pendingChanges is positive',
+          () {
         final syncState = SyncState(
           status: SyncStatus.idle,
           pendingChanges: 1,
@@ -132,7 +133,7 @@ void main() {
     group('copyWith', () {
       test('copyWith updates status', () {
         final updated = testSyncState.copyWith(status: SyncStatus.error);
-        
+
         expect(updated.status, equals(SyncStatus.error));
         expect(updated.lastSyncTime, equals(testSyncState.lastSyncTime));
         expect(updated.pendingChanges, equals(testSyncState.pendingChanges));
@@ -142,7 +143,7 @@ void main() {
       test('copyWith updates lastSyncTime', () {
         final newTime = DateTime(2024, 2, 1, 12, 0, 0);
         final updated = testSyncState.copyWith(lastSyncTime: newTime);
-        
+
         expect(updated.status, equals(testSyncState.status));
         expect(updated.lastSyncTime, equals(newTime));
         expect(updated.pendingChanges, equals(testSyncState.pendingChanges));
@@ -151,7 +152,7 @@ void main() {
 
       test('copyWith updates pendingChanges', () {
         final updated = testSyncState.copyWith(pendingChanges: 20);
-        
+
         expect(updated.status, equals(testSyncState.status));
         expect(updated.lastSyncTime, equals(testSyncState.lastSyncTime));
         expect(updated.pendingChanges, equals(20));
@@ -160,7 +161,7 @@ void main() {
 
       test('copyWith updates errorMessage', () {
         final updated = testSyncState.copyWith(errorMessage: 'New error');
-        
+
         expect(updated.status, equals(testSyncState.status));
         expect(updated.lastSyncTime, equals(testSyncState.lastSyncTime));
         expect(updated.pendingChanges, equals(testSyncState.pendingChanges));
@@ -175,7 +176,7 @@ void main() {
           pendingChanges: 15,
           errorMessage: 'Offline error',
         );
-        
+
         expect(updated.status, equals(SyncStatus.offline));
         expect(updated.lastSyncTime, equals(newTime));
         expect(updated.pendingChanges, equals(15));
@@ -184,7 +185,7 @@ void main() {
 
       test('copyWith with no parameters returns equivalent state', () {
         final updated = testSyncState.copyWith();
-        
+
         expect(updated.status, equals(testSyncState.status));
         expect(updated.lastSyncTime, equals(testSyncState.lastSyncTime));
         expect(updated.pendingChanges, equals(testSyncState.pendingChanges));
@@ -200,14 +201,14 @@ void main() {
           pendingChanges: 5,
           errorMessage: 'Error',
         );
-        
+
         final state2 = SyncState(
           status: SyncStatus.success,
           lastSyncTime: testLastSyncTime,
           pendingChanges: 5,
           errorMessage: 'Error',
         );
-        
+
         expect(state1, equals(state2));
         expect(state1.hashCode, equals(state2.hashCode));
       });
@@ -215,7 +216,7 @@ void main() {
       test('sync states with different status are not equal', () {
         final state1 = testSyncState;
         final state2 = testSyncState.copyWith(status: SyncStatus.error);
-        
+
         expect(state1, isNot(equals(state2)));
       });
 
@@ -224,35 +225,36 @@ void main() {
         final state2 = testSyncState.copyWith(
           lastSyncTime: DateTime(2024, 2, 1, 12, 0, 0),
         );
-        
+
         expect(state1, isNot(equals(state2)));
       });
 
       test('sync states with different pendingChanges are not equal', () {
         final state1 = testSyncState;
         final state2 = testSyncState.copyWith(pendingChanges: 10);
-        
+
         expect(state1, isNot(equals(state2)));
       });
 
       test('sync states with different errorMessage are not equal', () {
         final state1 = testSyncState;
         final state2 = testSyncState.copyWith(errorMessage: 'Different error');
-        
+
         expect(state1, isNot(equals(state2)));
       });
 
-      test('sync states with null vs non-null optional fields are not equal', () {
+      test('sync states with null vs non-null optional fields are not equal',
+          () {
         final state1 = SyncState(
           status: SyncStatus.idle,
           lastSyncTime: testLastSyncTime,
         );
-        
+
         final state2 = SyncState(
           status: SyncStatus.idle,
           lastSyncTime: null,
         );
-        
+
         expect(state1, isNot(equals(state2)));
       });
     });
@@ -263,7 +265,7 @@ void main() {
           status: SyncStatus.success,
           pendingChanges: 0,
         );
-        
+
         expect(syncState.pendingChanges, equals(0));
         expect(syncState.hasPendingChanges, isFalse);
       });
@@ -273,7 +275,7 @@ void main() {
           status: SyncStatus.offline,
           pendingChanges: 999999,
         );
-        
+
         expect(syncState.pendingChanges, equals(999999));
         expect(syncState.hasPendingChanges, isTrue);
       });
@@ -283,7 +285,7 @@ void main() {
           status: SyncStatus.error,
           errorMessage: '',
         );
-        
+
         expect(syncState.errorMessage, equals(''));
       });
 
@@ -293,7 +295,7 @@ void main() {
           status: SyncStatus.error,
           errorMessage: longError,
         );
-        
+
         expect(syncState.errorMessage, equals(longError));
       });
 
@@ -302,7 +304,7 @@ void main() {
           status: SyncStatus.error,
           errorMessage: 'Error with émojis 🔥 and "quotes" & symbols',
         );
-        
+
         expect(syncState.errorMessage, contains('émojis'));
         expect(syncState.errorMessage, contains('🔥'));
         expect(syncState.errorMessage, contains('"quotes"'));
@@ -314,7 +316,7 @@ void main() {
           status: SyncStatus.success,
           lastSyncTime: pastTime,
         );
-        
+
         expect(syncState.lastSyncTime, equals(pastTime));
         expect(syncState.lastSyncTime!.isBefore(DateTime.now()), isTrue);
       });
@@ -325,7 +327,7 @@ void main() {
           status: SyncStatus.success,
           lastSyncTime: futureTime,
         );
-        
+
         expect(syncState.lastSyncTime, equals(futureTime));
         expect(syncState.lastSyncTime!.isAfter(DateTime.now()), isTrue);
       });
@@ -333,7 +335,7 @@ void main() {
       test('handles all status values with offline check', () {
         for (final status in SyncStatus.values) {
           final syncState = SyncState(status: status);
-          
+
           if (status == SyncStatus.offline) {
             expect(syncState.isOnline, isFalse);
           } else {
@@ -351,9 +353,9 @@ void main() {
           pendingChanges: 5,
           errorMessage: 'Test error',
         );
-        
+
         final str = syncState.toString();
-        
+
         expect(str, contains('success'));
         expect(str, contains('5'));
         expect(str, contains('Test error'));
@@ -363,9 +365,9 @@ void main() {
         final syncState = SyncState(
           status: SyncStatus.idle,
         );
-        
+
         final str = syncState.toString();
-        
+
         expect(str, contains('idle'));
         expect(str, contains('null'));
         expect(str, contains('0'));
@@ -375,7 +377,7 @@ void main() {
         for (final status in SyncStatus.values) {
           final syncState = SyncState(status: status);
           final str = syncState.toString();
-          
+
           expect(str, contains(status.toString().split('.').last));
         }
       });
@@ -385,7 +387,7 @@ void main() {
       test('idle to syncing transition', () {
         final idle = SyncState(status: SyncStatus.idle);
         final syncing = idle.copyWith(status: SyncStatus.syncing);
-        
+
         expect(syncing.status, equals(SyncStatus.syncing));
         expect(syncing.isOnline, isTrue);
       });
@@ -400,7 +402,7 @@ void main() {
           lastSyncTime: DateTime.now(),
           pendingChanges: 0,
         );
-        
+
         expect(success.status, equals(SyncStatus.success));
         expect(success.pendingChanges, equals(0));
         expect(success.lastSyncTime, isNotNull);
@@ -412,7 +414,7 @@ void main() {
           status: SyncStatus.error,
           errorMessage: 'Sync failed',
         );
-        
+
         expect(error.status, equals(SyncStatus.error));
         expect(error.errorMessage, equals('Sync failed'));
       });
@@ -426,7 +428,7 @@ void main() {
           status: SyncStatus.offline,
           pendingChanges: 3,
         );
-        
+
         expect(offline.status, equals(SyncStatus.offline));
         expect(offline.isOnline, isFalse);
         expect(offline.hasPendingChanges, isTrue);
@@ -438,7 +440,7 @@ void main() {
           pendingChanges: 10,
         );
         final syncing = offline.copyWith(status: SyncStatus.syncing);
-        
+
         expect(syncing.status, equals(SyncStatus.syncing));
         expect(syncing.isOnline, isTrue);
         expect(syncing.pendingChanges, equals(10));

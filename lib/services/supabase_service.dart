@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../models/note_model.dart';
 import '../models/user_model.dart' as jot;
 import '../models/auth_state.dart';
@@ -11,10 +12,10 @@ import 'i_remote_storage_service.dart';
 /// Replaces the broken Firebase + Telegram stack.
 class SupabaseService implements IAuthService, IRemoteStorageService {
   final SupabaseClient _client;
-  
+
   final _authStateController = StreamController<AuthState>.broadcast();
-  StreamSubscription<AuthState>? _authSubscription;
-  
+  StreamSubscription<supabase.AuthState>? _authSubscription;
+
   SupabaseService({
     SupabaseClient? client,
   }) : _client = client ?? Supabase.instance.client {
@@ -22,11 +23,14 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
   }
 
   void _listenToAuthChanges() {
-    _client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       final event = data.event;
-      
-      if (event == AuthChangeEvent.signedIn && session != null) {
+
+      if ((event == AuthChangeEvent.signedIn ||
+              event == AuthChangeEvent.initialSession ||
+              event == AuthChangeEvent.tokenRefreshed) &&
+          session != null) {
         final user = session.user;
         _authStateController.add(AuthState(
           status: AuthStatus.authenticated,
@@ -35,7 +39,7 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
             email: user.email ?? '',
             displayName: user.userMetadata?['display_name'] as String?,
             photoUrl: user.userMetadata?['avatar_url'] as String?,
-            createdAt: DateTime.parse(user.createdAt),
+            createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
           ),
         ));
       } else if (event == AuthChangeEvent.signedOut) {
@@ -58,15 +62,17 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
         email: email,
         password: password,
       );
-      
+
       if (response.user != null) {
         return AuthResult(
           success: true,
           user: jot.User(
             uid: response.user!.id,
             email: response.user!.email ?? '',
-            displayName: response.user!.userMetadata?['display_name'] as String?,
-            createdAt: DateTime.parse(response.user!.createdAt),
+            displayName:
+                response.user!.userMetadata?['display_name'] as String?,
+            createdAt:
+                DateTime.tryParse(response.user!.createdAt) ?? DateTime.now(),
           ),
         );
       }
@@ -79,22 +85,31 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
   }
 
   @override
-  Future<AuthResult> signUpWithEmail(String email, String password, {String? displayName}) async {
+  Future<AuthResult> signUpWithEmail(String email, String password,
+      {String? displayName}) async {
     try {
       final response = await _client.auth.signUp(
         email: email,
         password: password,
         data: {'display_name': displayName},
       );
-      
+
       if (response.user != null) {
+        // Supabase returns a user but no session when email confirmation is
+        // enabled. Do not pretend the account is ready in that case.
+        final needsConfirmation = response.session == null;
         return AuthResult(
-          success: true,
+          success: !needsConfirmation,
+          emailConfirmationRequired: needsConfirmation,
+          errorMessage: needsConfirmation
+              ? 'Account created. Check your email to confirm it before signing in.'
+              : null,
           user: jot.User(
             uid: response.user!.id,
             email: response.user!.email ?? '',
             displayName: displayName,
-            createdAt: DateTime.parse(response.user!.createdAt),
+            createdAt:
+                DateTime.tryParse(response.user!.createdAt) ?? DateTime.now(),
           ),
         );
       }
@@ -118,7 +133,7 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
             uid: user.id,
             email: user.email ?? '',
             displayName: user.userMetadata?['display_name'] as String?,
-            createdAt: DateTime.parse(user.createdAt),
+            createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
           ),
         ));
         return true;
@@ -144,8 +159,23 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
       uid: user.id,
       email: user.email ?? '',
       displayName: user.userMetadata?['display_name'] as String?,
-      createdAt: DateTime.parse(user.createdAt),
+      createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
     );
+  }
+
+  @override
+  Future<AuthResult> resetPassword(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(email);
+      return AuthResult(
+        success: true,
+        errorMessage: 'Password reset email sent. Check your inbox.',
+      );
+    } on AuthException catch (e) {
+      return AuthResult(success: false, errorMessage: e.message);
+    } catch (e) {
+      return AuthResult(success: false, errorMessage: e.toString());
+    }
   }
 
   @override
@@ -158,13 +188,16 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
         OAuthProvider.google,
         redirectTo: kIsWeb ? null : 'io.supabase.jotapp://login-callback/',
       );
-      
+
       if (result) {
         return AuthResult(success: true);
       }
-      return AuthResult(success: false, errorMessage: 'Google Sign-In was cancelled');
+      return AuthResult(
+          success: false, errorMessage: 'Google Sign-In was cancelled');
     } catch (e) {
-      return AuthResult(success: false, errorMessage: 'Google Sign-In failed: ${e.toString()}');
+      return AuthResult(
+          success: false,
+          errorMessage: 'Google Sign-In failed: ${e.toString()}');
     }
   }
 
@@ -190,7 +223,7 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
           .eq('id', noteId)
           .eq('user_id', userId)
           .maybeSingle();
-      
+
       if (response == null) return null;
       return Note.fromSupabase(response);
     } catch (e) {
@@ -207,16 +240,17 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
           .select()
           .eq('user_id', userId)
           .order('modified_at', ascending: false);
-      
+
       return (response as List).map((json) => Note.fromSupabase(json)).toList();
     } catch (e) {
       debugPrint('Supabase downloadAllNotes error: $e');
-      return [];
+      rethrow;
     }
   }
 
   @override
-  Future<void> deleteNote(String userId, String noteId, {String? remoteId}) async {
+  Future<void> deleteNote(String userId, String noteId,
+      {String? remoteId}) async {
     try {
       await _client
           .from('notes')
@@ -225,6 +259,7 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
           .eq('user_id', userId);
     } catch (e) {
       debugPrint('Supabase deleteNote error: $e');
+      rethrow;
     }
   }
 
@@ -249,11 +284,11 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
   Future<String> uploadImage(Uint8List bytes, String filename) async {
     // Upload to Supabase Storage
     final response = await _client.storage.from('images').uploadBinary(
-      'notes/$filename',
-      bytes,
-      fileOptions: const FileOptions(upsert: true),
-    );
-    
+          'notes/$filename',
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
     if (response.isNotEmpty) {
       return 'notes/$filename';
     }
@@ -267,7 +302,8 @@ class SupabaseService implements IAuthService, IRemoteStorageService {
   }
 
   void dispose() {
-    _authStateController.close();
     _authSubscription?.cancel();
+    _authSubscription = null;
+    _authStateController.close();
   }
 }

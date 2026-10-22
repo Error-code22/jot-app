@@ -19,9 +19,20 @@ import '../services/todo_service.dart';
 import '../services/notification_service.dart';
 import '../services/background_sync_service.dart';
 import '../services/feedback_service.dart';
+import '../services/app_settings.dart';
+import '../services/biometric_service.dart';
+import '../services/audio_service.dart';
+import '../services/update_service.dart';
+import '../services/share_link_service.dart';
+import 'app_info.dart';
 
 class AppBootstrapper {
   static Future<Map<String, dynamic>> initialize() async {
+    // 0. Load build metadata and user preferences.
+    await AppInfo.load();
+    final settings = AppSettings();
+    await settings.load();
+
     // 1. Initialize platform services (sqflite FFI, etc.)
     await native.initPlatformServices('');
 
@@ -80,6 +91,17 @@ class AppBootstrapper {
     // 13. Initialize Feedback Service
     final feedbackService = FeedbackService();
 
+    // 14. Platform capabilities and feature services
+    final biometricService = BiometricService(settings: settings);
+    final audioService = AudioService();
+    final updateService = UpdateService();
+    final shareLinkService = ShareLinkService();
+
+    // Keep the notes UI fresh when a sync merges remote changes.
+    syncEngine.dataChanges.listen((userId) {
+      noteService.notifyExternalChange(userId);
+    });
+
     return {
       'authService': supabaseService,
       'localStorage': localStorage,
@@ -94,6 +116,11 @@ class AppBootstrapper {
       'notificationService': notificationService,
       'backgroundSync': backgroundSync,
       'feedbackService': feedbackService,
+      'settings': settings,
+      'biometricService': biometricService,
+      'audioService': audioService,
+      'updateService': updateService,
+      'shareLinkService': shareLinkService,
     };
   }
 }

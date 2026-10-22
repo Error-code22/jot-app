@@ -21,7 +21,8 @@ class WebStorageService implements ILocalStorageService {
   }
 
   Future<void> _saveAll(List<Note> notes) async {
-    final List<String> notesJson = notes.map((note) => jsonEncode(note.toJson())).toList();
+    final List<String> notesJson =
+        notes.map((note) => jsonEncode(note.toJson())).toList();
     await _prefs.setStringList(_storageKey, notesJson);
   }
 
@@ -49,17 +50,13 @@ class WebStorageService implements ILocalStorageService {
 
   @override
   Future<List<Note>> getAllNotes(String userId) async {
-    return _getAll()
-        .where((n) => n.userId == userId && !n.isDeleted)
-        .toList()
+    return _getAll().where((n) => n.userId == userId && !n.isDeleted).toList()
       ..sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
   }
 
   @override
   Future<List<Note>> getAllNotesForSync(String userId) async {
-    return _getAll()
-        .where((n) => n.userId == userId)
-        .toList()
+    return _getAll().where((n) => n.userId == userId).toList()
       ..sort((a, b) => a.modifiedAt.compareTo(b.modifiedAt));
   }
 
@@ -87,7 +84,8 @@ class WebStorageService implements ILocalStorageService {
   }
 
   @override
-  Future<List<Note>> getNotesModifiedAfter(DateTime timestamp, String userId) async {
+  Future<List<Note>> getNotesModifiedAfter(
+      DateTime timestamp, String userId) async {
     return _getAll()
         .where((n) => n.userId == userId && n.modifiedAt.isAfter(timestamp))
         .toList()
@@ -130,16 +128,18 @@ class WebStorageService implements ILocalStorageService {
   }
 
   Future<void> _saveAllTodos(List<TodoList> todos) async {
-    final raw = todos.map((t) => jsonEncode({
-      'id': t.id,
-      'userId': t.userId,
-      'title': t.title,
-      'items': t.items.map((i) => i.toJson()).toList(),
-      'createdAt': t.createdAt.toIso8601String(),
-      'modifiedAt': t.modifiedAt.toIso8601String(),
-      'color': t.color,
-      'icon': t.icon,
-    })).toList();
+    final raw = todos
+        .map((t) => jsonEncode({
+              'id': t.id,
+              'userId': t.userId,
+              'title': t.title,
+              'items': t.items.map((i) => i.toJson()).toList(),
+              'createdAt': t.createdAt.toIso8601String(),
+              'modifiedAt': t.modifiedAt.toIso8601String(),
+              'color': t.color,
+              'icon': t.icon,
+            }))
+        .toList();
     await _prefs.setStringList(_todoKey, raw);
   }
 

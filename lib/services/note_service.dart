@@ -10,7 +10,7 @@ class NoteService implements INoteService {
   final ILocalStorageService _local;
   final ISyncEngine _sync;
   final _uuid = const Uuid();
-  
+
   final Map<String, StreamController<List<Note>>> _noteStreamControllers = {};
 
   NoteService(this._local, this._sync);
@@ -24,6 +24,8 @@ class NoteService implements INoteService {
     List<String> tags = const [],
     String? color,
     List<String>? imageIds,
+    List<String>? audioIds,
+    bool hidePreview = false,
   }) async {
     final now = DateTime.now();
     final note = Note(
@@ -37,12 +39,14 @@ class NoteService implements INoteService {
       tags: tags,
       color: color,
       imageIds: imageIds ?? const [],
+      audioIds: audioIds ?? const [],
+      hidePreview: hidePreview,
     );
 
     await _local.insertNote(note);
     await _emitNotesUpdate(userId);
     unawaited(_sync.syncNow(userId));
-    
+
     return note;
   }
 
@@ -57,21 +61,35 @@ class NoteService implements INoteService {
   }
 
   @override
-  Future<Note> updateNote(Note note, {String? title, String? content, NoteType? type, List<String>? tags, String? color, List<String>? imageIds}) async {
+  Future<Note> updateNote(
+    Note note, {
+    String? title,
+    String? content,
+    NoteType? type,
+    List<String>? tags,
+    String? color,
+    bool clearColor = false,
+    List<String>? imageIds,
+    List<String>? audioIds,
+    bool? hidePreview,
+  }) async {
     final updatedNote = note.copyWith(
       title: title,
       content: content,
       type: type,
       tags: tags,
       color: color,
+      clearColor: clearColor,
       imageIds: imageIds,
+      audioIds: audioIds,
+      hidePreview: hidePreview,
       modifiedAt: DateTime.now(),
     );
 
     await _local.updateNote(updatedNote);
     await _emitNotesUpdate(note.userId);
     unawaited(_sync.syncNow(note.userId));
-    
+
     return updatedNote;
   }
 
@@ -81,7 +99,7 @@ class NoteService implements INoteService {
     await _emitNotesUpdate(note.userId);
     unawaited(_sync.syncNow(note.userId));
   }
-  
+
   @override
   Stream<List<Note>> watchNotes(String userId) {
     if (!_noteStreamControllers.containsKey(userId)) {
@@ -91,9 +109,10 @@ class NoteService implements INoteService {
     _emitNotesUpdate(userId);
     return _noteStreamControllers[userId]!.stream;
   }
-  
+
   @override
-  Future<List<Note>> searchNotes(String userId, String query, {String? tag}) async {
+  Future<List<Note>> searchNotes(String userId, String query,
+      {String? tag}) async {
     final allNotes = await _local.getAllNotes(userId);
     final lowerQuery = query.toLowerCase();
 
@@ -107,7 +126,8 @@ class NoteService implements INoteService {
       if (query.isNotEmpty) {
         final matchesTitle = note.title.toLowerCase().contains(lowerQuery);
         final matchesContent = note.content.toLowerCase().contains(lowerQuery);
-        final matchesTag = note.tags.any((t) => t.toLowerCase().contains(lowerQuery));
+        final matchesTag =
+            note.tags.any((t) => t.toLowerCase().contains(lowerQuery));
         if (!matchesTitle && !matchesContent && !matchesTag) {
           return false;
         }
@@ -121,10 +141,18 @@ class NoteService implements INoteService {
     await _emitNotesUpdate(userId);
   }
 
+  /// Notify listeners after notes were changed outside this service
+  /// (backup restore, import, or a remote sync merge).
+  Future<void> notifyExternalChange(String userId) async {
+    await _emitNotesUpdate(userId);
+  }
+
   Future<Note> togglePin(Note note) async {
-    final updated = note.copyWith(isPinned: !note.isPinned, modifiedAt: DateTime.now());
+    final updated =
+        note.copyWith(isPinned: !note.isPinned, modifiedAt: DateTime.now());
     await _local.updateNote(updated);
     await _emitNotesUpdate(note.userId);
+    unawaited(_sync.syncNow(note.userId));
     return updated;
   }
 
@@ -132,25 +160,28 @@ class NoteService implements INoteService {
     Note updated;
     if (note.isLocked) {
       // Unlocking — clear the pin hash
-      updated = note.copyWith(isLocked: false, modifiedAt: DateTime.now(), clearPinHash: true);
+      updated = note.copyWith(
+          isLocked: false, modifiedAt: DateTime.now(), clearPinHash: true);
     } else {
       // Locking — store the pin hash
       final hash = pin != null ? Note.hashPin(pin) : null;
-      updated = note.copyWith(isLocked: true, modifiedAt: DateTime.now(), pinHash: hash);
+      updated = note.copyWith(
+          isLocked: true, modifiedAt: DateTime.now(), pinHash: hash);
     }
     await _local.updateNote(updated);
     await _emitNotesUpdate(note.userId);
+    unawaited(_sync.syncNow(note.userId));
     return updated;
   }
 
   Future<void> _emitNotesUpdate(String userId) async {
-    if (_noteStreamControllers.containsKey(userId) && 
+    if (_noteStreamControllers.containsKey(userId) &&
         !_noteStreamControllers[userId]!.isClosed) {
       final notes = await _local.getAllNotes(userId);
       _noteStreamControllers[userId]!.add(notes);
     }
   }
-  
+
   void dispose() {
     for (final controller in _noteStreamControllers.values) {
       controller.close();

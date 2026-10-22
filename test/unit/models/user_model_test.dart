@@ -10,7 +10,7 @@ void main() {
     setUp(() {
       testCreatedAt = DateTime(2024, 1, 1, 12, 0, 0);
       testLastLoginAt = DateTime(2024, 1, 2, 12, 0, 0);
-      
+
       testUser = User(
         uid: 'test-uid-123',
         email: 'test@example.com',
@@ -37,7 +37,7 @@ void main() {
           email: 'user@example.com',
           createdAt: DateTime.now(),
         );
-        
+
         expect(user.displayName, isNull);
         expect(user.photoUrl, isNull);
         expect(user.lastLoginAt, isNull);
@@ -49,7 +49,7 @@ void main() {
           email: 'minimal@example.com',
           createdAt: testCreatedAt,
         );
-        
+
         expect(user.uid, equals('uid-456'));
         expect(user.email, equals('minimal@example.com'));
         expect(user.createdAt, equals(testCreatedAt));
@@ -62,7 +62,7 @@ void main() {
     group('JSON Serialization', () {
       test('toJson converts user to JSON map with all fields', () {
         final json = testUser.toJson();
-        
+
         expect(json['uid'], equals('test-uid-123'));
         expect(json['email'], equals('test@example.com'));
         expect(json['displayName'], equals('Test User'));
@@ -77,9 +77,9 @@ void main() {
           email: 'user@example.com',
           createdAt: testCreatedAt,
         );
-        
+
         final json = user.toJson();
-        
+
         expect(json['uid'], equals('uid'));
         expect(json['email'], equals('user@example.com'));
         expect(json['displayName'], isNull);
@@ -97,15 +97,17 @@ void main() {
           'createdAt': '2024-01-01T12:00:00.000',
           'lastLoginAt': '2024-01-02T12:00:00.000',
         };
-        
+
         final user = User.fromJson(json);
-        
+
         expect(user.uid, equals('json-uid'));
         expect(user.email, equals('json@example.com'));
         expect(user.displayName, equals('JSON User'));
         expect(user.photoUrl, equals('https://example.com/json.jpg'));
-        expect(user.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
-        expect(user.lastLoginAt, equals(DateTime.parse('2024-01-02T12:00:00.000')));
+        expect(
+            user.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
+        expect(user.lastLoginAt,
+            equals(DateTime.parse('2024-01-02T12:00:00.000')));
       });
 
       test('fromJson handles null optional fields', () {
@@ -117,21 +119,22 @@ void main() {
           'createdAt': '2024-01-01T12:00:00.000',
           'lastLoginAt': null,
         };
-        
+
         final user = User.fromJson(json);
-        
+
         expect(user.uid, equals('uid'));
         expect(user.email, equals('user@example.com'));
         expect(user.displayName, isNull);
         expect(user.photoUrl, isNull);
-        expect(user.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
+        expect(
+            user.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
         expect(user.lastLoginAt, isNull);
       });
 
       test('JSON round trip preserves all data', () {
         final json = testUser.toJson();
         final restored = User.fromJson(json);
-        
+
         expect(restored, equals(testUser));
       });
 
@@ -141,10 +144,10 @@ void main() {
           email: 'user@example.com',
           createdAt: testCreatedAt,
         );
-        
+
         final json = user.toJson();
         final restored = User.fromJson(json);
-        
+
         expect(restored, equals(user));
       });
     });
@@ -159,7 +162,7 @@ void main() {
           createdAt: testCreatedAt,
           lastLoginAt: testLastLoginAt,
         );
-        
+
         final user2 = User(
           uid: 'uid',
           email: 'user@example.com',
@@ -168,7 +171,7 @@ void main() {
           createdAt: testCreatedAt,
           lastLoginAt: testLastLoginAt,
         );
-        
+
         expect(user1, equals(user2));
         expect(user1.hashCode, equals(user2.hashCode));
       });
@@ -183,7 +186,7 @@ void main() {
           createdAt: testUser.createdAt,
           lastLoginAt: testUser.lastLoginAt,
         );
-        
+
         expect(user1, isNot(equals(user2)));
       });
 
@@ -197,7 +200,7 @@ void main() {
           createdAt: testUser.createdAt,
           lastLoginAt: testUser.lastLoginAt,
         );
-        
+
         expect(user1, isNot(equals(user2)));
       });
 
@@ -208,14 +211,14 @@ void main() {
           displayName: 'User',
           createdAt: testCreatedAt,
         );
-        
+
         final user2 = User(
           uid: 'uid',
           email: 'user@example.com',
           displayName: null,
           createdAt: testCreatedAt,
         );
-        
+
         expect(user1, isNot(equals(user2)));
       });
     });
@@ -228,9 +231,9 @@ void main() {
           displayName: '',
           createdAt: DateTime.now(),
         );
-        
+
         expect(user.displayName, equals(''));
-        
+
         // Test serialization
         final json = user.toJson();
         final restored = User.fromJson(json);
@@ -244,10 +247,10 @@ void main() {
           displayName: 'User with émojis 🎉 and "quotes"',
           createdAt: DateTime.now(),
         );
-        
+
         final json = user.toJson();
         final restored = User.fromJson(json);
-        
+
         expect(restored.displayName, equals(user.displayName));
       });
 
@@ -258,17 +261,17 @@ void main() {
           'user.name@example.co.uk',
           'user_name@sub.example.com',
         ];
-        
+
         for (final email in emails) {
           final user = User(
             uid: 'uid',
             email: email,
             createdAt: DateTime.now(),
           );
-          
+
           final json = user.toJson();
           final restored = User.fromJson(json);
-          
+
           expect(restored.email, equals(email));
         }
       });
@@ -279,7 +282,7 @@ void main() {
           'https://example.com/path/to/photo.png',
           'https://cdn.example.com/user/123/avatar.gif',
         ];
-        
+
         for (final url in urls) {
           final user = User(
             uid: 'uid',
@@ -287,10 +290,10 @@ void main() {
             photoUrl: url,
             createdAt: DateTime.now(),
           );
-          
+
           final json = user.toJson();
           final restored = User.fromJson(json);
-          
+
           expect(restored.photoUrl, equals(url));
         }
       });
@@ -303,12 +306,12 @@ void main() {
           createdAt: timestamp,
           lastLoginAt: timestamp,
         );
-        
+
         expect(user.createdAt, equals(user.lastLoginAt));
-        
+
         final json = user.toJson();
         final restored = User.fromJson(json);
-        
+
         expect(restored.createdAt, equals(restored.lastLoginAt));
       });
 
@@ -316,19 +319,19 @@ void main() {
         // This shouldn't happen in practice, but the model should handle it
         final createdAt = DateTime(2024, 1, 2);
         final lastLoginAt = DateTime(2024, 1, 1);
-        
+
         final user = User(
           uid: 'uid',
           email: 'user@example.com',
           createdAt: createdAt,
           lastLoginAt: lastLoginAt,
         );
-        
+
         expect(user.lastLoginAt!.isBefore(user.createdAt), isTrue);
-        
+
         final json = user.toJson();
         final restored = User.fromJson(json);
-        
+
         expect(restored.createdAt, equals(createdAt));
         expect(restored.lastLoginAt, equals(lastLoginAt));
       });
@@ -337,7 +340,7 @@ void main() {
     group('toString', () {
       test('toString includes all fields', () {
         final str = testUser.toString();
-        
+
         expect(str, contains('test-uid-123'));
         expect(str, contains('test@example.com'));
         expect(str, contains('Test User'));
@@ -350,9 +353,9 @@ void main() {
           email: 'user@example.com',
           createdAt: testCreatedAt,
         );
-        
+
         final str = user.toString();
-        
+
         expect(str, contains('uid'));
         expect(str, contains('user@example.com'));
         expect(str, contains('null'));

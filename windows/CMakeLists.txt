@@ -31,6 +31,12 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# MSVC 14.51 (Visual Studio 18) turns the deprecation of
+# <experimental/coroutine> into a hard error (STL1011). local_auth_windows
+# still compiles with /await, so opt into the documented suppression until the
+# plugin migrates to the C++20 coroutine headers.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_17)

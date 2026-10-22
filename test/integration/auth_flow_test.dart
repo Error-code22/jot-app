@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:jot_app/screens/login_screen.dart';
 import 'package:jot_app/screens/responsive_notes_screen.dart';
+import 'package:jot_app/services/app_settings.dart';
+import 'package:jot_app/services/cloudinary_service.dart';
 import 'package:jot_app/services/i_auth_service.dart';
 import 'package:jot_app/services/note_service.dart';
 import 'package:jot_app/services/sync_engine.dart';
@@ -25,14 +27,18 @@ Widget _buildApp(StubAuthService auth) {
       ChangeNotifierProvider<TodoService>.value(value: todoService),
       ChangeNotifierProvider(create: (_) => ViewModeProvider()),
       ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ChangeNotifierProvider(create: (_) => AppSettings()),
+      Provider(
+          create: (_) =>
+              CloudinaryService(edgeFunctionBaseUrl: 'https://example.com')),
       StreamProvider<AuthState>.value(
         value: auth.authStateChanges,
         initialData: AuthState(status: AuthStatus.unauthenticated),
       ),
     ],
     child: MaterialApp(
+      home: const _TestAuthGate(),
       routes: {
-        '/': (_) => const LoginScreen(),
         '/notes': (_) => const ResponsiveNotesScreen(),
         '/login': (_) => const LoginScreen(),
       },
@@ -40,9 +46,22 @@ Widget _buildApp(StubAuthService auth) {
   );
 }
 
+class _TestAuthGate extends StatelessWidget {
+  const _TestAuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AuthState>();
+    return state.isAuthenticated
+        ? const ResponsiveNotesScreen()
+        : const LoginScreen();
+  }
+}
+
 void main() {
   group('Auth flow integration', () {
-    testWidgets('successful sign-in navigates to ResponsiveNotesScreen', (tester) async {
+    testWidgets('successful sign-in navigates to ResponsiveNotesScreen',
+        (tester) async {
       final auth = StubAuthService(
         signInResult: AuthResult(success: true),
       );
@@ -50,8 +69,10 @@ void main() {
       await tester.pump();
 
       // Fill the form and sign in
-      await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password123');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Password'), 'password123');
       await tester.tap(find.text('Sign In'));
       await tester.pumpAndSettle();
 
@@ -59,15 +80,18 @@ void main() {
       expect(find.byType(ResponsiveNotesScreen), findsOneWidget);
     });
 
-    testWidgets('failed sign-in shows error message on LoginScreen', (tester) async {
+    testWidgets('failed sign-in shows error message on LoginScreen',
+        (tester) async {
       final auth = StubAuthService(
         signInResult: AuthResult(success: false, errorMessage: 'Test error'),
       );
       await tester.pumpWidget(_buildApp(auth));
       await tester.pump();
 
-      await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'wrong-password');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Password'), 'wrong-password');
       await tester.tap(find.text('Sign In'));
       await tester.pumpAndSettle();
 

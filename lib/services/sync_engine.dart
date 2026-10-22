@@ -15,17 +15,19 @@ class SyncEngine implements ISyncEngine {
   final IRemoteStorageService _remote;
   final Connectivity _connectivity;
   final ConflictResolver _conflictResolver;
-  
+
   final _syncStatusController = StreamController<SyncState>.broadcast();
   final _conflictController = StreamController<List<SyncConflict>>.broadcast();
+  final _changesController = StreamController<String>.broadcast();
   SyncState _currentState = SyncState(status: SyncStatus.idle);
-  
+
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
   StreamSubscription<List<Note>>? _remoteSubscription;
   String? _currentUserId;
   bool _isStarted = false;
+  bool _syncRequestedWhileBusy = false;
   DateTime? _lastSyncTime;
-  
+
   final Map<String, List<DateTime>> _syncAttempts = {};
   final List<Note> _failedOperationsQueue = [];
   final List<SyncConflict> _pendingConflicts = [];
@@ -36,28 +38,37 @@ class SyncEngine implements ISyncEngine {
     this._remote, {
     Connectivity? connectivity,
     ConflictResolver? conflictResolver,
-  }) : _connectivity = connectivity ?? Connectivity(),
-       _conflictResolver = conflictResolver ?? ConflictResolver();
+  })  : _connectivity = connectivity ?? Connectivity(),
+        _conflictResolver = conflictResolver ?? ConflictResolver();
 
   @override
   Stream<SyncState> get syncStatus => _syncStatusController.stream;
-  
+
   /// Stream of conflicts that need user resolution
   Stream<List<SyncConflict>> get conflicts => _conflictController.stream;
-  
+
+  /// Emits the user id whenever notes were changed by a remote merge.
+  Stream<String> get dataChanges => _changesController.stream;
+
+  List<SyncConflict> get pendingConflicts =>
+      List.unmodifiable(_pendingConflicts);
+
   @override
   bool get isSyncing => _currentState.status == SyncStatus.syncing;
 
   @override
   Future<void> start(String userId) async {
-    if (_isStarted) return;
-    
+    if (_isStarted && _currentUserId == userId) return;
+    if (_isStarted) {
+      await stop();
+    }
+
     _currentUserId = userId;
     _isStarted = true;
-    
+
     final initialResult = await _connectivity.checkConnectivity();
     _handleConnectivityChange(initialResult);
-    
+
     try {
       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
         (result) => _handleConnectivityChange(result),
@@ -71,13 +82,13 @@ class SyncEngine implements ISyncEngine {
     } catch (e) {
       // Non-fatal: connectivity subscription setup failed.
     }
-    
+
     _remoteSubscription = _remote.watchNotes(userId).listen(
-      (remoteNotes) => _handleRemoteUpdate(remoteNotes),
-      onError: (error) {},
-    );
+          (remoteNotes) => _handleRemoteUpdate(remoteNotes),
+          onError: (error) {},
+        );
   }
-  
+
   @override
   Future<void> stop() async {
     _isStarted = false;
@@ -86,15 +97,18 @@ class SyncEngine implements ISyncEngine {
     _syncAttempts.clear();
     _failedOperationsQueue.clear();
     _pendingConflicts.clear();
+    _conflictController.add(const []);
     await _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
     await _remoteSubscription?.cancel();
     _remoteSubscription = null;
   }
-  
+
   void _handleConnectivityChange(ConnectivityResult result) {
     _updateSyncStatusFromConnectivity(result);
-    if (result != ConnectivityResult.none && _isStarted && _currentUserId != null) {
+    if (result != ConnectivityResult.none &&
+        _isStarted &&
+        _currentUserId != null) {
       unawaited(syncNow(_currentUserId!));
     }
   }
@@ -110,18 +124,20 @@ class SyncEngine implements ISyncEngine {
   @override
   Future<SyncResult> syncNow(String userId) async {
     if (_currentState.status == SyncStatus.syncing) {
+      _syncRequestedWhileBusy = true;
       return SyncResult.empty();
     }
-    
+
     // Check queue depth
     if (_failedOperationsQueue.length >= _maxQueueSize) {
       _updateState(_currentState.copyWith(
         status: SyncStatus.error,
-        errorMessage: 'Sync queue full (${_failedOperationsQueue.length}/$_maxQueueSize). Please free up space.',
+        errorMessage:
+            'Sync queue full (${_failedOperationsQueue.length}/$_maxQueueSize). Please free up space.',
       ));
       return SyncResult.empty();
     }
-    
+
     _updateState(_currentState.copyWith(status: SyncStatus.syncing));
 
     int notesDownloaded = 0;
@@ -131,7 +147,7 @@ class SyncEngine implements ISyncEngine {
 
     try {
       await _processFailedOperationsQueue(userId);
-      
+
       final pullSuccess = await _retryOperation(
         () async {
           final pullResult = await _pullRemoteChangesWithStats(userId);
@@ -140,7 +156,7 @@ class SyncEngine implements ISyncEngine {
         },
         'pull sync',
       );
-      
+
       final pushSuccess = await _retryOperation(
         () async {
           final pushResult = await _pushLocalChangesWithStats(userId);
@@ -148,28 +164,37 @@ class SyncEngine implements ISyncEngine {
         },
         'push sync',
       );
-      
+
+      if (!pullSuccess) {
+        errors.add('Failed to download changes');
+      }
+
       if (!pushSuccess) {
         errors.add('Failed to push local changes');
       }
-      
-      if (pullSuccess || pushSuccess) {
+
+      if (pullSuccess && pushSuccess) {
         _lastSyncTime = DateTime.now();
       }
-      
-      final finalStatus = errors.isEmpty ? SyncStatus.success : SyncStatus.error;
-      
+
+      final finalStatus =
+          errors.isEmpty ? SyncStatus.success : SyncStatus.error;
+
       _updateState(_currentState.copyWith(
         status: finalStatus,
         lastSyncTime: _lastSyncTime,
         pendingChanges: _failedOperationsQueue.length,
       ));
-      
+
       // Notify about pending conflicts
       if (_pendingConflicts.isNotEmpty) {
         _conflictController.add(List.from(_pendingConflicts));
       }
-      
+
+      if (notesDownloaded > 0 || conflictsResolved > 0) {
+        _changesController.add(userId);
+      }
+
       return SyncResult(
         notesUploaded: notesUploaded,
         notesDownloaded: notesDownloaded,
@@ -185,21 +210,25 @@ class SyncEngine implements ISyncEngine {
           _updateState(_currentState.copyWith(status: SyncStatus.idle));
         }
       });
+      if (_syncRequestedWhileBusy) {
+        _syncRequestedWhileBusy = false;
+        unawaited(syncNow(userId));
+      }
     }
   }
 
   @override
   Future<void> pushLocalChanges(String userId) async {
     List<Note> notesToSync;
-    
+
     if (_lastSyncTime != null) {
       notesToSync = await _local.getNotesModifiedAfter(_lastSyncTime!, userId);
     } else {
       notesToSync = await _local.getAllNotesForSync(userId);
     }
-    
+
     if (notesToSync.isEmpty) return;
-    
+
     for (var note in notesToSync) {
       if (note.isDeleted) {
         await _remote.deleteNote(userId, note.id);
@@ -213,10 +242,10 @@ class SyncEngine implements ISyncEngine {
   @override
   Future<void> pullCloudChanges(String userId) async {
     final remoteNotes = await _remote.downloadAllNotes(userId);
-    
+
     for (var remoteNote in remoteNotes) {
       final localNote = await _local.getNoteById(remoteNote.id);
-      
+
       if (localNote == null) {
         await _local.insertNote(remoteNote);
       } else {
@@ -226,16 +255,16 @@ class SyncEngine implements ISyncEngine {
       }
     }
   }
-  
+
   Future<Map<String, int>> _pullRemoteChangesWithStats(String userId) async {
     int downloaded = 0;
     int conflicts = 0;
-    
+
     final remoteNotes = await _remote.downloadAllNotes(userId);
-    
+
     for (var remoteNote in remoteNotes) {
       final localNote = await _local.getNoteById(remoteNote.id);
-      
+
       if (localNote == null) {
         await _local.insertNote(remoteNote);
         downloaded++;
@@ -244,7 +273,7 @@ class SyncEngine implements ISyncEngine {
           // Check if both have significant changes
           if (_hasMajorChanges(localNote, remoteNote)) {
             // Both devices made significant changes - notify user
-            _pendingConflicts.add(SyncConflict(
+            _addPendingConflict(SyncConflict(
               noteId: remoteNote.id,
               localVersion: localNote,
               remoteVersion: remoteNote,
@@ -253,22 +282,28 @@ class SyncEngine implements ISyncEngine {
             conflicts++;
           } else {
             // Minor changes - auto-resolve with last-write-wins
-            final resolvedNote = _conflictResolver.resolveConflict(localNote, remoteNote);
+            final resolvedNote =
+                _conflictResolver.resolveConflict(localNote, remoteNote);
             await _local.insertNote(resolvedNote);
             conflicts++;
           }
         }
       }
     }
-    
+
     return {'downloaded': downloaded, 'conflicts': conflicts};
+  }
+
+  void _addPendingConflict(SyncConflict conflict) {
+    _pendingConflicts.removeWhere((c) => c.noteId == conflict.noteId);
+    _pendingConflicts.add(conflict);
   }
 
   bool _hasMajorChanges(Note local, Note remote) {
     // Consider it a major change if both title and content differ significantly
     final titleChanged = local.title != remote.title;
     final contentChanged = local.content != remote.content;
-    
+
     // Check if content differs by more than 20%
     if (titleChanged && contentChanged) {
       final lengthDiff = (local.content.length - remote.content.length).abs();
@@ -279,28 +314,28 @@ class SyncEngine implements ISyncEngine {
         return true;
       }
     }
-    
+
     return false;
   }
 
   Future<Map<String, int>> _pushLocalChangesWithStats(String userId) async {
     int uploaded = 0;
     List<Note> notesToSync;
-    
+
     if (_lastSyncTime != null) {
       notesToSync = await _local.getNotesModifiedAfter(_lastSyncTime!, userId);
     } else {
       notesToSync = await _local.getAllNotesForSync(userId);
     }
-    
+
     if (notesToSync.isEmpty) {
       return {'uploaded': 0};
     }
-    
+
     for (var note in notesToSync) {
       if (_isInSyncLoop(note.id)) continue;
       _recordSyncAttempt(note.id);
-      
+
       try {
         if (note.isDeleted) {
           await _remote.deleteNote(userId, note.id);
@@ -314,24 +349,26 @@ class SyncEngine implements ISyncEngine {
         _queueFailedOperation(note);
       }
     }
-    
+
     return {'uploaded': uploaded};
   }
 
   Future<void> _handleRemoteUpdate(List<Note> remoteNotes) async {
     if (_currentUserId == null || !_isStarted) return;
     if (_currentState.status == SyncStatus.syncing) return;
-    
+
     try {
+      var changed = false;
       for (var remoteNote in remoteNotes) {
         final localNote = await _local.getNoteById(remoteNote.id);
-        
+
         if (localNote == null) {
           await _local.insertNote(remoteNote);
+          changed = true;
         } else {
           if (_conflictResolver.hasConflict(localNote, remoteNote)) {
             if (_hasMajorChanges(localNote, remoteNote)) {
-              _pendingConflicts.add(SyncConflict(
+              _addPendingConflict(SyncConflict(
                 noteId: remoteNote.id,
                 localVersion: localNote,
                 remoteVersion: remoteNote,
@@ -339,12 +376,15 @@ class SyncEngine implements ISyncEngine {
               ));
               _conflictController.add(List.from(_pendingConflicts));
             } else {
-              final resolvedNote = _conflictResolver.resolveConflict(localNote, remoteNote);
+              final resolvedNote =
+                  _conflictResolver.resolveConflict(localNote, remoteNote);
               await _local.insertNote(resolvedNote);
+              changed = true;
             }
           }
         }
       }
+      if (changed) _changesController.add(_currentUserId!);
     } catch (e) {
       // Non-fatal: merge of a remote update failed; next sync will retry.
     }
@@ -353,66 +393,69 @@ class SyncEngine implements ISyncEngine {
   /// Resolve a conflict by choosing local or remote version
   Future<void> resolveConflict(String noteId, {required bool keepLocal}) async {
     final conflict = _pendingConflicts.firstWhere((c) => c.noteId == noteId);
-    final chosenVersion = keepLocal ? conflict.localVersion : conflict.remoteVersion;
-    
+    final chosenVersion =
+        keepLocal ? conflict.localVersion : conflict.remoteVersion;
+
     await _local.updateNote(chosenVersion);
     await _remote.uploadNote(chosenVersion);
-    
+
     _pendingConflicts.removeWhere((c) => c.noteId == noteId);
     _conflictController.add(List.from(_pendingConflicts));
+    if (_currentUserId != null) _changesController.add(_currentUserId!);
   }
 
   /// Merge both versions (concatenate content)
   Future<void> mergeConflict(String noteId) async {
     final conflict = _pendingConflicts.firstWhere((c) => c.noteId == noteId);
-    
+
     final mergedNote = conflict.localVersion.copyWith(
       title: '${conflict.localVersion.title} (merged)',
-      content: '${conflict.localVersion.content}\n\n---\n\n${conflict.remoteVersion.content}',
+      content:
+          '${conflict.localVersion.content}\n\n---\n\n${conflict.remoteVersion.content}',
       modifiedAt: DateTime.now(),
     );
-    
+
     await _local.updateNote(mergedNote);
     await _remote.uploadNote(mergedNote);
-    
+
     _pendingConflicts.removeWhere((c) => c.noteId == noteId);
     _conflictController.add(List.from(_pendingConflicts));
+    if (_currentUserId != null) _changesController.add(_currentUserId!);
   }
 
   void _updateState(SyncState newState) {
     _currentState = newState;
     _syncStatusController.add(newState);
   }
-  
+
   bool _isInSyncLoop(String noteId) {
     final attempts = _syncAttempts[noteId];
     if (attempts == null || attempts.isEmpty) return false;
-    
+
     final now = DateTime.now();
-    final recentAttempts = attempts.where((time) => 
-      now.difference(time).inSeconds <= 10
-    ).toList();
-    
+    final recentAttempts =
+        attempts.where((time) => now.difference(time).inSeconds <= 10).toList();
+
     _syncAttempts[noteId] = recentAttempts;
     return recentAttempts.length > 3;
   }
-  
+
   void _recordSyncAttempt(String noteId) {
     _syncAttempts.putIfAbsent(noteId, () => []);
     _syncAttempts[noteId]!.add(DateTime.now());
   }
-  
+
   Duration _calculateBackoffDelay(int attemptNumber) {
     final seconds = (1 << attemptNumber).clamp(1, 16);
     return Duration(seconds: seconds);
   }
-  
+
   Future<bool> _retryOperation(
     Future<void> Function() operation,
     String operationName,
   ) async {
     const maxAttempts = 3;
-    
+
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         await operation();
@@ -428,7 +471,7 @@ class SyncEngine implements ISyncEngine {
     }
     return false;
   }
-  
+
   void _queueFailedOperation(Note note) {
     if (!_failedOperationsQueue.any((n) => n.id == note.id)) {
       _failedOperationsQueue.add(note);
@@ -437,13 +480,13 @@ class SyncEngine implements ISyncEngine {
       ));
     }
   }
-  
+
   Future<void> _processFailedOperationsQueue(String userId) async {
     if (_failedOperationsQueue.isEmpty) return;
-    
+
     final notesToRetry = List<Note>.from(_failedOperationsQueue);
     _failedOperationsQueue.clear();
-    
+
     for (var note in notesToRetry) {
       try {
         if (note.isDeleted) {
@@ -456,18 +499,19 @@ class SyncEngine implements ISyncEngine {
         _queueFailedOperation(note);
       }
     }
-    
+
     _updateState(_currentState.copyWith(
       pendingChanges: _failedOperationsQueue.length,
     ));
   }
-  
+
   @override
   void dispose() {
     _connectivitySubscription?.cancel();
     _remoteSubscription?.cancel();
     _syncStatusController.close();
     _conflictController.close();
+    _changesController.close();
   }
 }
 

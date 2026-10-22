@@ -1,5 +1,5 @@
 /// Sync state model for the Jot? application
-/// 
+///
 /// Represents the current synchronization status and state.
 /// Used to track sync progress, pending changes, and connectivity status.
 library;
@@ -8,16 +8,16 @@ library;
 enum SyncStatus {
   /// Not currently syncing
   idle,
-  
+
   /// Currently syncing with cloud
   syncing,
-  
+
   /// Last sync completed successfully
   success,
-  
+
   /// Last sync failed with error
   error,
-  
+
   /// No network connectivity available
   offline,
 }
@@ -26,13 +26,13 @@ enum SyncStatus {
 class SyncState {
   /// Current synchronization status
   final SyncStatus status;
-  
+
   /// Timestamp of last successful sync (optional)
   final DateTime? lastSyncTime;
-  
+
   /// Number of pending changes waiting to sync
   final int pendingChanges;
-  
+
   /// Error message from last failed sync (optional)
   final String? errorMessage;
 
@@ -67,7 +67,7 @@ class SyncState {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is SyncState &&
         other.status == status &&
         other.lastSyncTime == lastSyncTime &&

@@ -23,14 +23,14 @@ class FeedbackItem {
   });
 
   factory FeedbackItem.fromJson(Map<String, dynamic> j) => FeedbackItem(
-    id: j['id'],
-    userId: j['user_id'],
-    type: j['type'] == 'bug' ? FeedbackType.bug : FeedbackType.feature,
-    title: j['title'],
-    description: j['description'],
-    status: j['status'] ?? 'open',
-    createdAt: DateTime.parse(j['created_at']),
-  );
+        id: j['id'],
+        userId: j['user_id'],
+        type: j['type'] == 'bug' ? FeedbackType.bug : FeedbackType.feature,
+        title: j['title'],
+        description: j['description'],
+        status: j['status'] ?? 'open',
+        createdAt: DateTime.parse(j['created_at']),
+      );
 }
 
 /// Service for submitting and retrieving bug reports and feature requests.

@@ -1,23 +1,23 @@
 /// User model for the Jot? application
-/// 
+///
 /// Represents an authenticated user with Gmail account information.
 /// Used for authentication state management and user-scoped data access.
 class User {
   /// Firebase user ID (unique identifier)
   final String uid;
-  
+
   /// User's email address
   final String email;
-  
+
   /// User's display name (optional)
   final String? displayName;
-  
+
   /// User's profile photo URL (optional)
   final String? photoUrl;
-  
+
   /// Account creation timestamp
   final DateTime createdAt;
-  
+
   /// Last login timestamp (optional)
   final DateTime? lastLoginAt;
 
@@ -50,7 +50,7 @@ class User {
       displayName: json['displayName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      lastLoginAt: json['lastLoginAt'] != null 
+      lastLoginAt: json['lastLoginAt'] != null
           ? DateTime.parse(json['lastLoginAt'] as String)
           : null,
     );
@@ -59,7 +59,7 @@ class User {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is User &&
         other.uid == uid &&
         other.email == email &&

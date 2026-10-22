@@ -102,7 +102,8 @@ class BackupService {
       int importedCount = 0;
 
       for (final item in jsonData) {
-        final note = Note.fromJson(item as Map<String, dynamic>);
+        final note = Note.fromJson(item as Map<String, dynamic>)
+            .copyWith(userId: userId);
         // Check if note already exists
         final existing = await _localStorage.getNoteById(note.id);
         if (existing == null) {
@@ -128,7 +129,8 @@ class BackupService {
       for (final file in archive) {
         if (file.isFile && file.name.endsWith('.json')) {
           final data = utf8.decode(file.content as List<int>);
-          final note = Note.fromJson(jsonDecode(data) as Map<String, dynamic>);
+          final note = Note.fromJson(jsonDecode(data) as Map<String, dynamic>)
+              .copyWith(userId: userId);
           final existing = await _localStorage.getNoteById(note.id);
           if (existing == null) {
             await _localStorage.insertNote(note);
@@ -153,11 +155,11 @@ class BackupService {
       if (!await backupDir.exists()) {
         await backupDir.create(recursive: true);
       }
-      
+
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final backupPath = '${backupDir.path}/backup_$timestamp.zip';
       await file.copy(backupPath);
-      
+
       return backupPath;
     } catch (e) {
       debugPrint('Local backup error: $e');

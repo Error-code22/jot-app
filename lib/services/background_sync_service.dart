@@ -14,7 +14,7 @@ class BackgroundSyncService {
   BackgroundSyncService({
     Workmanager? workmanager,
     required NotificationService notificationService,
-  })  : _workmanager = workmanager ?? Workmanager();
+  }) : _workmanager = workmanager ?? Workmanager();
 
   Future<void> initialize() async {
     if (_initialized) return;

@@ -1,34 +1,41 @@
 # Jot? — Project Guide & Handoff
 
-> Written 2026-08-26 during the finalization session. This file is the authoritative
-> description of the CURRENT state of the app (post-Supabase migration). Older docs
-> (`ARCHITECTURE.md`, `SESSION_PROGRESS.md`, `ERRORS.md`) describe the earlier
-> Firebase + Telegram era and are kept only for history.
+> **Current release:** 2.4.0+4 · **Flutter:** 3.44 · **Last updated:** 2026-10-23
+>
+> This is the authoritative description of the app's current state. `ARCHITECTURE.md`
+> describes the earlier Firestore + Telegram era and is kept for history only.
 
 ---
 
 ## 1. What is Jot?
 
 A cross-platform notes app (Android, Windows, Linux, macOS; web is preview-only).
-Users sign in with email/password (Supabase Auth), write notes (text or interactive
-checklists), attach images, and everything syncs across devices offline-first.
+Users sign in with email/password (Supabase Auth), write text or interactive
+checklist notes, attach images and voice recordings, lock private notes, and
+everything syncs offline-first across devices.
 
-**Core features (current):**
-- Email/password sign-up & sign-in via Supabase Auth (session restore on launch)
-- Notes CRUD: text + checklist note types, tags, colors, pin, PIN-lock
-- Offline-first sync: local SQLite is the source of truth; background SyncEngine
-  pushes/pulls to Supabase with last-write-wins conflict resolution (+ user-resolvable
-  conflict dialog for "major" conflicts)
-- Realtime pull (Supabase Realtime) so changes from other devices appear live
-- Image attachments: pick → compress (`flutter_image_compress`) → upload via
-  Supabase Edge Function `image-proxy` → Cloudinary (keys live ONLY in the edge
-  function, never in the app)
-- Import .txt/.md files or folders (desktop)
-- Todo lists (separate feature from notes, local storage)
-- Dark/light/system theme, grid/list/compact view modes, adjustable editor font size
-- Responsive layout: two-pane ≥800px, single-pane masonry below
-- Background sync scheduling (WorkManager/`sync_scheduler.dart`)
-- Backup service (`backup_service.dart` — local backup/restore)
+**Core features (2.4.0):**
+- Email/password sign-up & sign-in via Supabase Auth (forgot-password reset, session restore)
+- Notes CRUD: text + checklist types, tags, colors, pin, **PIN + biometric lock**
+- **Private previews**: hide note content/thumbnails per note or globally, and for locked notes
+- **Voice notes**: record audio (`record`) and play it back (`audioplayers`), stored in the
+  user's own Supabase Storage bucket — **no third-party transcription**
+- Offline-first sync: local SQLite is the source of truth; `SyncEngine` pushes/pulls to
+  Supabase with last-write-wins + a conflict dialog for major conflicts
+- Realtime pull (Supabase Realtime) for live cross-device updates
+- Image attachments: pick → compress (`flutter_image_compress`) → upload via the
+  `image-proxy` Edge Function → Cloudinary (keys live only in the function)
+- **Revocable share links**: a snapshot of a note is published to `shared_notes` and
+  rendered as a public page by the `shared-note` Edge Function
+- Todo lists with priorities, due dates, recurrence, and **optional reminders**
+- **In-app updates**: full-screen update page with release notes, download progress,
+  optional SHA-256 verification, and the Android system installer
+- Backup/export (JSON/ZIP), import (.txt/.md/folders), grid/list/compact views,
+  responsive two-pane layout, dark/light/system theme, adjustable editor font size
+- Background sync scheduling (WorkManager) and local notifications
+
+**Status:** `flutter analyze` clean · `flutter test` 199/199 passing · Windows release
+build verified after the MSVC fix (see §9).
 
 ---
 
@@ -37,38 +44,34 @@ checklists), attach images, and everything syncs across devices offline-first.
 | Concern | Technology |
 |---|---|
 | UI | Flutter 3.44 (Material 3), `provider` state management |
-| Backend | Supabase — Auth, Postgres (`notes` table), Storage (`images` bucket), Realtime, Edge Functions |
-| Edge function | `supabase/functions/image-proxy/` — receives image upload, forwards to Cloudinary |
+| Backend | Supabase — Auth, Postgres, Storage, Realtime, Edge Functions |
+| Edge functions | `image-proxy` (Cloudinary uploads, JWT required); `shared-note` (public, `verify_jwt = false`) |
 | Local DB | SQLite via `sqflite` (mobile/macOS) / `sqflite_common_ffi` (Windows/Linux); `WebStorageService` (SharedPreferences) on web |
 | Images | `image_picker` → `flutter_image_compress` → Cloudinary (via edge function) |
+| Audio | `record` (AAC-LC in .m4a) + `audioplayers`; uploaded to the `note-audio` bucket |
+| Biometrics | `local_auth` (Android `FlutterFragmentActivity`, iOS Face ID, Windows Hello) |
 | Notifications | `flutter_local_notifications`, `home_widget`, `workmanager` (Android) |
-| Auth session | Managed by `supabase_flutter` (persisted by the SDK on each platform) |
+| Versioning | `package_info_plus` surfaced through `AppInfo` |
+| Updates | `http` + `crypto` (SHA-256) + `open_filex` (Android installer) |
 
-Key packages: `supabase_flutter ^2.3` (resolves to 2.16), `provider`, `sqflite`,
-`connectivity_plus`, `file_picker`, `uuid`, `google_fonts`, `http`, `intl`.
+Key packages: `supabase_flutter`, `provider`, `sqflite`, `connectivity_plus`,
+`file_picker`, `uuid`, `crypto`, `http`, `intl`, `record`, `audioplayers`,
+`local_auth`, `package_info_plus`, `open_filex`, `timezone`/`flutter_timezone`.
 
 ---
 
-## 3. History (why the repo looks the way it does)
+## 3. History
 
-1. **Firebase + Telegram era** — original backend was Firestore (metadata) +
-   Telegram bot (note content) + Google Sign-In. Windows launch was fixed (CMake
-   install prefix, icudtl.dat path, CWD fix in `windows/runner/main.cpp`).
-2. **Supabase migration** — backend was replaced with Supabase (schema:
-   `supabase/migrations/001_create_notes_table.sql`, RLS policies, realtime).
-   Auth switched to email/password. `lib/config.dart` holds the Supabase URL +
-   anon (publishable) key — the anon key is public by design, security is via RLS.
-3. **Finalization session (this handoff)** — removed all dead Firebase/Telegram
-   code, cleaned the analyzer to zero issues in `lib/`, switched screens to depend
-   on the `IAuthService` interface instead of the concrete `SupabaseService`, and
-   rewrote the broken test suite for the Supabase stack. Status at time of writing:
-   - ✅ `lib/` analyzes with **no issues**
-   - ✅ Dead files deleted: `firestore_*`, `telegram_service`, `windows_auth_service*`,
-     `auth_service` (old Firebase impl), `fb_auth_stub`, `firebase_options.dart.bak`,
-     plus root junk (`firestore.rules`, `firebase.json`, `ndk.zip`, `$flutterRoot/`, …)
-   - ⏳ Tests being rewritten (widget/integration/unit) — see §8
-   - ⏳ Mocks regenerated via `dart run build_runner build`
-   - ⏳ `flutter test`, `flutter build windows --release`, `flutter build apk`
+1. **Firebase + Telegram era** — Firestore + Telegram bot + Google Sign-In. Windows
+   launch fixes (CMake install prefix, icudtl.dat path, CWD fix in `windows/runner/main.cpp`).
+2. **Supabase migration** — backend replaced with Supabase; email/password auth;
+   `lib/config.dart` holds the public anon key (security is via RLS).
+3. **Finalization session** — removed dead Firebase/Telegram code, zero analyzer issues,
+   rewrote the test suite for Supabase.
+4. **2.4.0 release session (this update)** — biometric locks, private previews, voice
+   notes, functional settings, todo reminders, working feedback links, revocable share
+   links, and a full-screen GitHub/Supabase update flow. Backend migrations and Edge
+   Functions deployed. Added the Windows MSVC build fix.
 
 ---
 
@@ -76,49 +79,45 @@ Key packages: `supabase_flutter ^2.3` (resolves to 2.16), `provider`, `sqflite`,
 
 ```
 lib/
-├── main.dart                      # Bootstrap + provider wiring + routes
-├── config.dart                    # AppConfig: Supabase URL + publishable (anon) key
+├── main.dart                      # Bootstrap + provider wiring + auth lifecycle
+├── config.dart                    # AppConfig: Supabase URL/anon key + githubReleasesRepo
 ├── core/
-│   ├── app_bootstrapper.dart      # conditional import switcher (native vs web)
-│   ├── app_bootstrapper_native.dart  # sqflite FFI init (Windows/Linux/macOS)
-│   └── app_bootstrapper_stub.dart    # web stub (WebStorageService)
+│   ├── app_info.dart              # Runtime version/package identity (package_info_plus)
+│   ├── app_bootstrapper.dart      # Conditional import switcher (native vs web)
+│   ├── app_bootstrapper_native.dart
+│   └── app_bootstrapper_stub.dart
 ├── models/                        # Note, ChecklistItem, AuthState, User, SyncState,
-│                                  # SyncResult, TodoItem/TodoList, IDEConfig, ProgressEntry
+│                                  # SyncResult, TodoItem/TodoList, ProgressEntry
 ├── services/
-│   ├── i_*.dart                   # abstract interfaces (IAuthService, ILocalStorageService,
-│   │                              # IRemoteStorageService, INoteService, ISyncEngine, …)
-│   ├── supabase_service.dart      # implements IAuthService + IRemoteStorageService
-│   ├── local_storage_service.dart # SQLite CRUD, schema v7, soft deletes
-│   ├── web_storage_service.dart   # web fallback (SharedPreferences)
-│   ├── note_service.dart          # note CRUD API for UI (writes local, triggers sync)
-│   ├── sync_engine.dart           # bidirectional sync + conflict detection/resolution
-│   ├── sync_scheduler.dart        # periodic background sync
-│   ├── cloudinary_service.dart    # image upload via edge function
-│   ├── image_compress_service.dart# image compression before upload
-│   ├── backup_service.dart        # local backup/restore
-│   ├── todo_service.dart          # todo lists (ChangeNotifier)
-│   ├── import_service*.dart       # txt/md import (io/stub conditional split)
-│   └── (config_service, progress_service — dev-tooling services)
-├── screens/                       # login, responsive_notes, note_editor, todo,
-│                                  # settings, profile, import, support, terms, notes_list
-├── widgets/                       # note_card, desktop_note_card, sync_indicator,
-│                                  # jot_ui (glassmorphism helpers), drawing_canvas,
-│                                  # conflict_resolver_dialog
-└── utils/                         # platform_theme, theme_provider, view_mode_provider,
-                                   # conflict_resolver, connectivity_monitor, color_utils
+│   ├── i_*.dart                   # Abstract interfaces
+│   ├── supabase_service.dart      # IAuthService + IRemoteStorageService
+│   ├── local_storage_service.dart # SQLite CRUD, schema v8, soft deletes
+│   ├── note_service.dart          # Note CRUD (writes local, triggers sync)
+│   ├── sync_engine.dart           # Bidirectional sync + conflict resolution
+│   ├── cloudinary_service.dart    # Image upload via edge function (+ Storage fallback)
+│   ├── audio_service.dart         # Voice recording + note-audio upload
+│   ├── biometric_service.dart     # local_auth wrapper (canUseDeviceAuth)
+│   ├── app_settings.dart          # Persisted preferences (privacy, updates, biometrics)
+│   ├── update_service.dart        # GitHub-first / Supabase-fallback release checks
+│   ├── share_link_service.dart    # shared_notes snapshot create/list/revoke
+│   ├── notification_service.dart  # Local notifications + reminders
+│   ├── todo_service.dart, backup_service.dart, import_service*.dart, …
+├── screens/                       # login, responsive_notes, note_editor, todo, settings,
+│                                  # profile, feedback, import, support, terms, update_screen
+├── widgets/                       # note cards, sync_indicator, jot_ui, conflict dialog
+└── utils/                         # platform_theme, theme/view_mode providers,
+                                   # adaptive_logo, markdown_renderer, conflict resolver
 
 supabase/
-├── migrations/001_create_notes_table.sql   # notes schema + RLS + realtime + storage
-└── functions/image-proxy/                  # Cloudinary upload edge function
+├── migrations/001_create_notes_table.sql
+├── migrations/002_create_feedback_table.sql
+├── migrations/003_release_features.sql
+├── migrations/004_release_manifest_metadata.sql
+└── functions/image-proxy/ · functions/shared-note/
 
-test/
-├── unit/           # note_service, sync_engine, local_storage, import, models, utils
-├── widget/         # login, note_editor, responsive_notes, sync_indicator + stubs.dart
-└── integration/    # auth flow, note creation flow, sync engine flow
-
+test/  unit/ · widget/ · integration/
 android/ windows/ linux/ macos/ web/   # platform projects
-public/             # logo.png + images/
-docs/               # per-task implementation notes (historic)
+public/                                 # logo.png (dark) + logo_light.png
 ```
 
 ---
@@ -127,107 +126,123 @@ docs/               # per-task implementation notes (historic)
 
 ```
 UI (screens/widgets)
-  │  Provider<IAuthService> / NoteService / SyncEngine / TodoService / ThemeProvider …
+  │  Provider<IAuthService> / NoteService / SyncEngine / TodoService / AppSettings …
   ▼
 NoteService ──► SyncEngine ──► ConflictResolver (LWW + user-resolvable major conflicts)
   │                 │
   ▼                 ▼
 LocalStorageService (SQLite)     SupabaseService (IRemoteStorageService)
                                     ├── Postgres `notes` (upsert/select/delete)
-                                    ├── Storage `images` (uploadBinary/getPublicUrl)
-                                    └── Realtime stream (watchNotes → live pull)
+                                    ├── Storage `images` / `note-audio`
+                                    └── Realtime stream (live pull)
 ```
 
 - **Write-local-first:** every mutation hits SQLite first, then `unawaited(syncNow())`.
-- **Sync cycle:** failed-op queue retry → pull (retry ×3, exp. backoff) → push →
-  state transition syncing → success/error → idle.
-- **Conflicts:** minor differences auto-resolve LWW (newest `modifiedAt`, ID tiebreak);
-  "major" (title+content changed >20%) queue a `SyncConflict` and raise the
-  `conflict_resolver_dialog.dart` UI (keep local / keep remote / merge).
-- **Auth routing:** `StreamProvider<AuthState>` drives `/` → LoginScreen vs
-  ResponsiveNotesScreen. `main.dart` wires `_setupAuthStateListener` to start/stop
-  SyncEngine + SyncScheduler on auth changes.
-- **DI:** manual — `AppBootstrapper.initialize()` builds every service and returns a
-  map consumed by `MultiProvider` in `main.dart`.
+- **Sync cycle:** failed-op retry → pull (×3, exponential backoff) → push → state transition.
+- **Failures surface:** remote methods rethrow so `SyncEngine` can retry (no false "synced").
+- **Auth routing:** `StreamProvider<AuthState>` picks LoginScreen vs ResponsiveNotesScreen;
+  `main.dart` starts/stops SyncEngine + scheduler on auth changes and runs the update check.
+- **DI:** `AppBootstrapper.initialize()` builds every service into a map consumed by
+  `MultiProvider` in `main.dart`.
 
-## 6. Data model (notes)
+---
 
-SQLite table `notes` (schema version 7) and Supabase `notes` table (snake_case):
-`id` (uuid), `userId`, `title`, `content` (plain text or JSON checklist array),
-`createdAt`, `modifiedAt`, `isDeleted` (soft delete), `type` (text|checklist),
-`telegramMessageId` (legacy column, kept for migration compat), `tags` (JSON),
-`color` (hex), `isPinned`, `isLocked`, `pinHash` (lightweight hash, NOT a security
-boundary), `imageIds` (JSON of Cloudinary public IDs).
+## 6. Data model & backend
+
+### SQLite `notes` (schema v8)
+`id`, `userId`, `title`, `content` (plain text or JSON checklist array), `createdAt`,
+`modifiedAt`, `isDeleted` (soft delete), `type` (text|checklist), `telegramMessageId`
+(legacy, kept for migration compat), `tags` (JSON), `color`, `isPinned`, `isLocked`,
+`pinHash`, `imageIds` (JSON of Cloudinary URLs / storage paths), **`audioIds`** (JSON),
+**`hidePreview`**.
 
 `Note.toSupabase()` / `Note.fromSupabase()` map camelCase ↔ snake_case.
 
+### Supabase (live project `bvgtzjsnqhqyeyinbhdk`)
+| Object | Purpose |
+|---|---|
+| `notes` | note rows, owner-scoped RLS, realtime enabled |
+| `feedback` | bug reports / feature requests (owner-scoped) |
+| `shared_notes` | revocable share snapshots (`token`, `snapshot`, `expires_at`, `revoked`) |
+| `app_releases` | update manifest (`version`, `platform`, `notes`, `download_url`, `size_bytes`, `sha256`) |
+| Storage `images` | note images (public read; authenticated insert/update/delete own) |
+| Storage `note-audio` | voice notes (public read; authenticated insert/update/delete own) |
+
+Migrations are tracked with the Supabase CLI. Migration `001` was applied by hand
+originally and later marked applied with `supabase migration repair --status applied 001`.
+
+---
+
 ## 7. Security notes
 
-- `lib/config.dart` anon key is public by design; all table access is RLS-scoped to
-  `auth.uid() = user_id`.
-- Cloudinary credentials exist ONLY in the edge function (`image-proxy`).
-- The edge function requires a Supabase auth token (`Authorization: Bearer …`).
-- PIN lock is a convenience feature with a weak hash — fine for local locking, not
-  for secrets.
-- Supabase keys/URL are currently embedded in `lib/config.dart` (this is standard for
-  the anon key); the service-role key must never be added to the app.
+- `lib/config.dart` anon key is public by design; table access is RLS-scoped to `auth.uid() = user_id`.
+- Cloudinary credentials exist **only** in the `image-proxy` function. The service-role key
+  is never in the app.
+- `shared-note` runs with `verify_jwt = false` but validates the unguessable token itself;
+  it escapes all content, only embeds http(s) media URLs, and never returns the raw snapshot
+  or the note's `pinHash`.
+- PIN lock is a convenience feature with a weak hash — fine for local locking, not secrets.
+  Biometrics are attempted first, PIN is the fallback.
+- Audio is stored only in the user's own Supabase project; **no transcription provider is used**.
+- Legacy Firebase API keys still exist in git history (from the pre-Supabase era). Firebase
+  API keys are client-side identifiers, but the old Firebase projects should be deleted or
+  restricted.
 
-## 8. Finalization checklist (this session)
+---
 
-Remaining steps in order:
-1. Rewrite `test/integration/auth_flow_test.dart` (email/password flow, IAuthService)
-2. Rewrite `test/unit/` auth/main tests for Supabase (`supabase_service_test.dart`,
-   `config_test.dart`); delete Firebase-era `auth_service_test.dart`, `main_test.dart`
-3. `dart run build_runner build --delete-conflicting-outputs` (regenerates `.mocks.dart`
-   for `note_service_test`, `sync_engine_test`, `connectivity_monitor_test`,
-   `sync_engine_flow_test`)
-4. `flutter analyze` — expect 0 issues
-5. `flutter test` — expect all green
-6. `flutter build windows --release` — output `build/windows/x64/install/`
-7. `flutter build apk --release` — output `build/app/outputs/flutter-apk/app-release.apk`
-8. Update `README.md` (it still describes Firebase)
-9. Delete or archive historic docs (`ARCHITECTURE.md`, `SESSION_PROGRESS.md`,
-   `ERRORS.md`, `FIREBASE_SETUP.md` already gone) — decision pending
+## 8. Update & release flow
+
+`UpdateService.checkForUpdates()` tries sources in order:
+
+1. **GitHub Releases** — `GET /repos/{owner}/{repo}/releases/latest` for
+   `AppConfig.githubReleasesRepo`. Tag → version, body → notes, platform-matched asset
+   (`.apk`, `.exe`/`.zip`, `.dmg`/`.zip`, `.AppImage`/`.deb`/`.tar.gz`), plus asset `size`
+   and SHA-256 `digest`. Requires the repo/releases to be **public**.
+2. **Supabase `app_releases`** — fallback manifest (read-only for clients).
+
+If a newer version exists, `update_screen.dart` opens a full-screen page with the notes,
+download size, a progress bar, **Cancel**, an integrity line, and "Not now". On Android the
+APK is downloaded, its SHA-256 verified when published, and the system installer is opened.
+
+---
 
 ## 9. Build & run
 
 ```powershell
-# Analyze / test
 flutter analyze
 flutter test
-flutter test test/unit      # unit only
-flutter test test/widget    # widget only
-
-# Regenerate mockito mocks (after changing interfaces)
-dart run build_runner build --delete-conflicting-outputs
-
-# Run on Windows (hot reload: press r)
 flutter run -d windows
 
-# Release builds
-flutter build windows --release     # → build\windows\x64\install\
+flutter build windows --release     # → build\windows\x64\runner\Release (exe + data/)
 flutter build apk --release         # → build\app\outputs\flutter-apk\app-release.apk
 ```
 
-Windows gotchas (from history): the exe needs `sqlite3.dll` beside it (bundled via
-`windows/libs/` + CMake install rule), `data/` layout (icudtl.dat, flutter_assets)
-is fixed in `windows/CMakeLists.txt`, CWD fix in `windows/runner/main.cpp`. Do not
-run with RivaTuner/MSI Afterburner or Windhawk — their DLL injection crashes Flutter.
+Windows: the built exe needs `sqlite3.dll` beside it (bundled via `windows/libs/` + CMake
+install rule) and the `data/` layout (icudtl.dat, flutter_assets). Do not run with
+RivaTuner/MSI Afterburner or Windhawk — their DLL injection crashes Flutter.
 
-Android needs `google-services.json`? **No** — Firebase was removed. Supabase needs
-no platform config files; the app uses the embedded URL/key from `config.dart`.
-(There is a legacy `android/app/` folder — re-verify build before shipping.)
+**Windows build fix (MSVC 14.51 / Visual Studio 18):** `local_auth_windows 2.0.2` compiles
+with `/await` + `<experimental/coroutine>`, which new MSVC turns into the hard error STL1011.
+`windows/CMakeLists.txt` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` to
+suppress it until the plugin migrates to the C++20 coroutine headers.
 
-## 10. Known limitations / roadmap
-
-- `signInWithGmail()` returns "not configured" — OAuth (Google) login not wired for
-  Supabase yet (would use `signInWithOAuth` + deep link setup)
-- `SupabaseService` no longer holds a reference to `ILocalStorageService` (sync logic
-  lives fully in `SyncEngine`); screens depend on `IAuthService`
-- Web is preview-only (SharedPreferences storage)
-- PIN hash is weak by design
-- Historic docs are stale (this file supersedes them)
+Android: no Firebase config needed (`google-services.json` was removed with Firebase).
+`MainActivity` extends `FlutterFragmentActivity` (required by `local_auth`). The manifest
+requests `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `USE_BIOMETRIC`, `RECORD_AUDIO`,
+and `REQUEST_INSTALL_PACKAGES`.
 
 ---
 
-*End of handoff — regenerate this file if the architecture changes again.*
+## 10. Known limitations / roadmap
+
+- In-app updates need the GitHub repository to stay **public**; otherwise the Supabase
+  manifest is used (publishing still works).
+- iOS has not been built/verified from this Windows machine.
+- Web is preview-only (SharedPreferences storage).
+- PIN hash is weak by design (use biometrics for real protection).
+- Legacy Firebase API keys remain in git history (revoke the old projects).
+- Historic docs (`ARCHITECTURE.md`) are stale; this file supersedes them.
+
+---
+
+*End of handoff — regenerate this file when the architecture changes again.*

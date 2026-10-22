@@ -37,7 +37,8 @@ void main() {
 
       expect(note.title, 'New Note');
       expect(note.userId, userId);
-      verify(mockLocal.insertNote(argThat(predicate((Note n) => n.id == note.id)))).called(1);
+      verify(mockLocal.insertNote(
+          argThat(predicate((Note n) => n.id == note.id)))).called(1);
       verify(mockSync.syncNow(userId)).called(1);
     });
 
@@ -58,7 +59,8 @@ void main() {
       final updated = await noteService.updateNote(note, title: 'New');
 
       expect(updated.title, 'New');
-      verify(mockLocal.updateNote(argThat(predicate((Note n) => n.title == 'New')))).called(1);
+      verify(mockLocal.updateNote(
+          argThat(predicate((Note n) => n.title == 'New')))).called(1);
       verify(mockSync.syncNow(userId)).called(1);
     });
 

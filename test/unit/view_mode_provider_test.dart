@@ -10,7 +10,8 @@ void main() {
   // -------------------------------------------------------------------------
   // Task 14.3 — defaults to grid on first install (req 7.6, 7.8)
   // -------------------------------------------------------------------------
-  test('defaults to grid mode when no preference stored (req 7.6, 7.8)', () async {
+  test('defaults to grid mode when no preference stored (req 7.6, 7.8)',
+      () async {
     SharedPreferences.setMockInitialValues({});
     final provider = ViewModeProvider();
     // Initial value before async load

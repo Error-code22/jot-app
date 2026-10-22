@@ -14,7 +14,7 @@ void main() {
       test('returns local note when local is more recent', () {
         final now = DateTime.now();
         final earlier = now.subtract(const Duration(hours: 1));
-        
+
         final localNote = Note(
           id: 'note1',
           userId: 'user1',
@@ -23,7 +23,7 @@ void main() {
           createdAt: earlier,
           modifiedAt: now,
         );
-        
+
         final cloudNote = Note(
           id: 'note1',
           userId: 'user1',
@@ -32,9 +32,9 @@ void main() {
           createdAt: earlier,
           modifiedAt: earlier,
         );
-        
+
         final result = resolver.resolveConflict(localNote, cloudNote);
-        
+
         expect(result, equals(localNote));
         expect(result.title, equals('Local Title'));
       });
@@ -42,7 +42,7 @@ void main() {
       test('returns cloud note when cloud is more recent', () {
         final now = DateTime.now();
         final earlier = now.subtract(const Duration(hours: 1));
-        
+
         final localNote = Note(
           id: 'note1',
           userId: 'user1',
@@ -51,7 +51,7 @@ void main() {
           createdAt: earlier,
           modifiedAt: earlier,
         );
-        
+
         final cloudNote = Note(
           id: 'note1',
           userId: 'user1',
@@ -60,16 +60,18 @@ void main() {
           createdAt: earlier,
           modifiedAt: now,
         );
-        
+
         final result = resolver.resolveConflict(localNote, cloudNote);
-        
+
         expect(result, equals(cloudNote));
         expect(result.title, equals('Cloud Title'));
       });
 
-      test('uses note ID lexicographic comparison as tiebreaker when timestamps are identical', () {
+      test(
+          'uses note ID lexicographic comparison as tiebreaker when timestamps are identical',
+          () {
         final now = DateTime.now();
-        
+
         // Note with ID 'b' should win over 'a' (lexicographically greater)
         final localNote = Note(
           id: 'b',
@@ -79,7 +81,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final cloudNote = Note(
           id: 'b',
           userId: 'user1',
@@ -88,16 +90,16 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final result = resolver.resolveConflict(localNote, cloudNote);
-        
+
         // When IDs are the same and timestamps identical, local should win (>= 0)
         expect(result, equals(localNote));
       });
 
       test('tiebreaker is deterministic across different devices', () {
         final now = DateTime.now();
-        
+
         final noteA = Note(
           id: 'aaa',
           userId: 'user1',
@@ -106,7 +108,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final noteB = Note(
           id: 'bbb',
           userId: 'user1',
@@ -115,11 +117,11 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         // Resolve from both perspectives
         final resultAB = resolver.resolveConflict(noteA, noteB);
         final resultBA = resolver.resolveConflict(noteB, noteA);
-        
+
         // Both should resolve to the same note (the one with lexicographically greater ID)
         expect(resultAB.id, equals('bbb'));
         expect(resultBA.id, equals('bbb'));
@@ -129,7 +131,7 @@ void main() {
     group('hasConflict', () {
       test('returns false when notes are identical', () {
         final now = DateTime.now();
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -138,7 +140,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final note2 = Note(
           id: 'note1',
           userId: 'user1',
@@ -147,14 +149,14 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isFalse);
       });
 
       test('returns true when timestamps differ', () {
         final now = DateTime.now();
         final earlier = now.subtract(const Duration(hours: 1));
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -163,7 +165,7 @@ void main() {
           createdAt: earlier,
           modifiedAt: now,
         );
-        
+
         final note2 = Note(
           id: 'note1',
           userId: 'user1',
@@ -172,13 +174,13 @@ void main() {
           createdAt: earlier,
           modifiedAt: earlier,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isTrue);
       });
 
       test('returns true when titles differ', () {
         final now = DateTime.now();
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -187,7 +189,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final note2 = Note(
           id: 'note1',
           userId: 'user1',
@@ -196,13 +198,13 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isTrue);
       });
 
       test('returns true when content differs', () {
         final now = DateTime.now();
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -211,7 +213,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final note2 = Note(
           id: 'note1',
           userId: 'user1',
@@ -220,13 +222,13 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isTrue);
       });
 
       test('returns true when isDeleted differs', () {
         final now = DateTime.now();
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -236,7 +238,7 @@ void main() {
           modifiedAt: now,
           isDeleted: false,
         );
-        
+
         final note2 = Note(
           id: 'note1',
           userId: 'user1',
@@ -246,13 +248,13 @@ void main() {
           modifiedAt: now,
           isDeleted: true,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isTrue);
       });
 
       test('returns false when note IDs differ', () {
         final now = DateTime.now();
-        
+
         final note1 = Note(
           id: 'note1',
           userId: 'user1',
@@ -261,7 +263,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         final note2 = Note(
           id: 'note2',
           userId: 'user1',
@@ -270,7 +272,7 @@ void main() {
           createdAt: now,
           modifiedAt: now,
         );
-        
+
         expect(resolver.hasConflict(note1, note2), isFalse);
       });
     });

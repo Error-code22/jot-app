@@ -117,7 +117,8 @@ class _ImportScreenState extends State<ImportScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Import Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Import Notes',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -125,7 +126,7 @@ class _ImportScreenState extends State<ImportScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Supported formats: .txt  •  .md  •  .markdown',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 20),
 
             // Drag & Drop zone
@@ -158,7 +159,8 @@ class _ImportScreenState extends State<ImportScreen> {
                     ),
                     color: _isDragOver
                         ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        : theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.3),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -181,7 +183,7 @@ class _ImportScreenState extends State<ImportScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text('or use the buttons below',
-                        style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          style: TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
                 );
@@ -199,7 +201,8 @@ class _ImportScreenState extends State<ImportScreen> {
                     onPressed: _importing ? null : _pickFiles,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -211,7 +214,8 @@ class _ImportScreenState extends State<ImportScreen> {
                     onPressed: _importing ? null : _pickFolder,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -222,13 +226,14 @@ class _ImportScreenState extends State<ImportScreen> {
             // Queued paths
             if (_queuedPaths.isNotEmpty) ...[
               Text('Ready to import (${_queuedPaths.length}):',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Container(
                 constraints: const BoxConstraints(maxHeight: 160),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
                 ),
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -247,8 +252,9 @@ class _ImportScreenState extends State<ImportScreen> {
                       style: const TextStyle(fontSize: 13),
                     ),
                     subtitle: Text(_queuedPaths[i],
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      overflow: TextOverflow.ellipsis),
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.grey),
+                        overflow: TextOverflow.ellipsis),
                     trailing: IconButton(
                       icon: const Icon(Icons.close, size: 16),
                       onPressed: () => setState(() => _queuedPaths.removeAt(i)),
@@ -264,14 +270,18 @@ class _ImportScreenState extends State<ImportScreen> {
             // Import button
             ElevatedButton.icon(
               icon: _importing
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.upload_rounded),
               label: Text(_importing ? 'Importing...' : 'Import Now'),
               onPressed: _importing ? null : _runImport,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],

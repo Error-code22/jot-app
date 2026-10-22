@@ -50,3 +50,11 @@ file_size_limit = "50MiB"
 
 [realtime]
 enabled = true
+
+[functions.image-proxy]
+verify_jwt = true
+
+# Public share links are opened by recipients without a Supabase session; the
+# function validates the unguessable token itself.
+[functions.shared-note]
+verify_jwt = false

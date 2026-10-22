@@ -57,7 +57,8 @@ class SyncIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _getColor(context);
-    final hasPending = syncState.hasPendingChanges && syncState.status != SyncStatus.syncing;
+    final hasPending =
+        syncState.hasPendingChanges && syncState.status != SyncStatus.syncing;
 
     Widget icon = syncState.status == SyncStatus.syncing
         ? _RotatingIcon(color: color)
@@ -101,13 +102,16 @@ class _RotatingIcon extends StatefulWidget {
   State<_RotatingIcon> createState() => _RotatingIconState();
 }
 
-class _RotatingIconState extends State<_RotatingIcon> with SingleTickerProviderStateMixin {
+class _RotatingIconState extends State<_RotatingIcon>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(seconds: 2), vsync: this)..repeat();
+    _controller =
+        AnimationController(duration: const Duration(seconds: 2), vsync: this)
+          ..repeat();
   }
 
   @override

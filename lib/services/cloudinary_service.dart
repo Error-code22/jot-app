@@ -53,6 +53,25 @@ class CloudinaryService {
       );
     } catch (e) {
       debugPrint('Cloudinary upload error: $e');
+      // Fall back to Supabase Storage so image attachments keep working even
+      // when the Edge Function is unavailable.
+      try {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user != null) {
+          final objectPath = '${user.id}/$fileName';
+          await Supabase.instance.client.storage.from('images').uploadBinary(
+                objectPath,
+                imageBytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
+          final url = Supabase.instance.client.storage
+              .from('images')
+              .getPublicUrl(objectPath);
+          return CloudinaryResult(publicId: url, url: url, width: 0, height: 0);
+        }
+      } catch (fallbackError) {
+        debugPrint('Supabase image fallback failed: $fallbackError');
+      }
       rethrow;
     }
   }
@@ -70,14 +89,32 @@ class CloudinaryService {
     );
   }
 
-  /// Get thumbnail URL from publicId
-  String getThumbnailUrl(String publicId, {int size = 200}) {
-    final cloudName = 'dazzpcnf9';
-    return 'https://res.cloudinary.com/$cloudName/image/upload/w_$size,h_$size,c_fill,q_auto,f_auto/$publicId';
+  /// Get thumbnail URL from a public id or a full image URL.
+  String getThumbnailUrl(String reference, {int size = 200}) {
+    final direct = resolveUrl(reference);
+    if (direct.contains('res.cloudinary.com') &&
+        direct.contains('/image/upload/')) {
+      return direct.replaceFirst(
+        '/image/upload/',
+        '/image/upload/w_$size,h_$size,c_fill,q_auto,f_auto/',
+      );
+    }
+    return direct;
+  }
+
+  /// Resolve a stored attachment reference (public id or full URL).
+  String resolveUrl(String reference) {
+    if (reference.startsWith('http://') || reference.startsWith('https://')) {
+      return reference;
+    }
+    return getDirectUrl(reference);
   }
 
   /// Get the direct image URL (no transformations)
   String getDirectUrl(String publicId) {
+    if (publicId.startsWith('http://') || publicId.startsWith('https://')) {
+      return publicId;
+    }
     final cloudName = 'dazzpcnf9';
     return 'https://res.cloudinary.com/$cloudName/image/upload/$publicId';
   }

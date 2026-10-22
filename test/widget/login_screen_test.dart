@@ -59,7 +59,8 @@ void main() {
       await tester.tap(toggle);
       await tester.pump();
       expect(find.text('Create Account'), findsWidgets);
-      expect(find.widgetWithText(TextFormField, 'Display Name'), findsOneWidget);
+      expect(
+          find.widgetWithText(TextFormField, 'Display Name'), findsOneWidget);
     });
 
     testWidgets('shows validation error for empty email', (tester) async {
@@ -76,8 +77,10 @@ void main() {
       );
       await tester.pumpWidget(_buildTestApp(authService: failAuth));
       await tester.pump();
-      await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password123');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'), 'test@test.com');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Password'), 'password123');
       await tester.tap(find.text('Sign In'));
       await tester.pumpAndSettle();
       expect(find.text('Test error'), findsOneWidget);

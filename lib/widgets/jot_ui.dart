@@ -74,9 +74,18 @@ class JotGradientBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: colors ?? (isDark
-            ? [const Color(0xFF181825), const Color(0xFF1E1E2E), const Color(0xFF181825)]
-            : [const Color(0xFFFBFBFE), const Color(0xFFEDDFFC), const Color(0xFFE0F2F1)]),
+          colors: colors ??
+              (isDark
+                  ? [
+                      const Color(0xFF181825),
+                      const Color(0xFF1E1E2E),
+                      const Color(0xFF181825)
+                    ]
+                  : [
+                      const Color(0xFFFBFBFE),
+                      const Color(0xFFEDDFFC),
+                      const Color(0xFFE0F2F1)
+                    ]),
         ),
       ),
       child: child,

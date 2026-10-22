@@ -46,12 +46,14 @@ void main() {
       when(mockGoTrue.signInWithPassword(
         email: anyNamed('email'),
         password: anyNamed('password'),
-      )).thenAnswer((_) async => supa.AuthResponse(user: fakeUser(
-        userMetadata: {'display_name': 'Test User'},
-      )));
+      )).thenAnswer((_) async => supa.AuthResponse(
+              user: fakeUser(
+            userMetadata: {'display_name': 'Test User'},
+          )));
 
       final service = createService();
-      final result = await service.signInWithEmail('test@example.com', 'secret');
+      final result =
+          await service.signInWithEmail('test@example.com', 'secret');
 
       expect(result.success, isTrue);
       expect(result.user, isNotNull);
@@ -73,14 +75,16 @@ void main() {
       expect(result.errorMessage, 'Invalid login credentials');
     });
 
-    test('signUpWithEmail returns mapped user on success', () async {
+    test('signUpWithEmail reports email confirmation when no session',
+        () async {
       when(mockGoTrue.signUp(
         email: anyNamed('email'),
         password: anyNamed('password'),
         data: anyNamed('data'),
-      )).thenAnswer((_) async => supa.AuthResponse(user: fakeUser(
-        email: 'new@example.com',
-      )));
+      )).thenAnswer((_) async => supa.AuthResponse(
+              user: fakeUser(
+            email: 'new@example.com',
+          )));
 
       final service = createService();
       final result = await service.signUpWithEmail(
@@ -89,7 +93,8 @@ void main() {
         displayName: 'New User',
       );
 
-      expect(result.success, isTrue);
+      expect(result.success, isFalse);
+      expect(result.emailConfirmationRequired, isTrue);
       expect(result.user, isNotNull);
       expect(result.user!.email, 'new@example.com');
       expect(result.user!.displayName, 'New User');
@@ -176,20 +181,21 @@ void main() {
       expect(await service.downloadNote('user-1', 'note-1'), isNull);
     });
 
-    test('downloadAllNotes returns empty list on network failure', () async {
+    test('downloadAllNotes rethrows on network failure', () async {
       when(mockClient.from('notes')).thenThrow(Exception('network down'));
 
       final service = createService();
 
-      expect(await service.downloadAllNotes('user-1'), isEmpty);
+      await expectLater(service.downloadAllNotes('user-1'), throwsException);
     });
 
-    test('deleteNote swallows network failures', () async {
+    test('deleteNote rethrows network failures for sync retry', () async {
       when(mockClient.from('notes')).thenThrow(Exception('network down'));
 
       final service = createService();
 
-      await service.deleteNote('user-1', 'note-1');
+      await expectLater(
+          service.deleteNote('user-1', 'note-1'), throwsException);
     });
   });
 }

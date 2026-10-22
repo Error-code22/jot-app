@@ -1,6 +1,10 @@
 
 # Jot? — Architecture & Developer Guide
 
+> ⚠️ **HISTORIC (pre-Supabase).** This document describes the earlier Firestore + Telegram
+> storage era and is kept for history only. For the current architecture and release state
+> (2.4.0), see [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md).
+
 > **Version:** 1.0.0+1 · **Flutter SDK:** ≥ 3.0.0 · **Last updated:** May 2026
 
 A cross-platform notes app for Android, Windows, Linux, and macOS. Built with Flutter, backed by a hybrid Firestore + Telegram storage layer, and designed around an offline-first, service-abstracted architecture.

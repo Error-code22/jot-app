@@ -10,9 +10,12 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeMode get themeMode {
     switch (_mode) {
-      case AppThemeMode.dark: return ThemeMode.dark;
-      case AppThemeMode.system: return ThemeMode.system;
-      case AppThemeMode.light: return ThemeMode.light;
+      case AppThemeMode.dark:
+        return ThemeMode.dark;
+      case AppThemeMode.system:
+        return ThemeMode.system;
+      case AppThemeMode.light:
+        return ThemeMode.light;
     }
   }
 
@@ -25,7 +28,8 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('theme_mode') ?? 'light';
-    _mode = AppThemeMode.values.firstWhere((e) => e.name == saved, orElse: () => AppThemeMode.light);
+    _mode = AppThemeMode.values
+        .firstWhere((e) => e.name == saved, orElse: () => AppThemeMode.light);
     notifyListeners();
   }
 

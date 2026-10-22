@@ -17,20 +17,36 @@ import 'package:jot_app/services/sync_engine.dart';
 // ---------------------------------------------------------------------------
 
 class _NullLocalStorage implements ILocalStorageService {
-  @override Future<void> initialize() async {}
-  @override Future<void> insertNote(Note note) async {}
-  @override Future<Note?> getNoteById(String id) async => null;
-  @override Future<List<Note>> getAllNotes(String userId) async => [];
-  @override Future<List<Note>> getAllNotesForSync(String userId) async => [];
-  @override Future<void> updateNote(Note note) async {}
-  @override Future<void> softDeleteNote(String id) async {}
-  @override Future<void> hardDeleteNote(String id) async {}
-  @override Future<List<Note>> getNotesModifiedAfter(DateTime timestamp, String userId) async => [];
-  @override Future<void> clearAllNotes([String? userId]) async {}
-  @override Future<void> insertTodoList(TodoList todoList) async {}
-  @override Future<void> updateTodoList(TodoList todoList) async {}
-  @override Future<void> deleteTodoList(String id) async {}
-  @override Future<List<TodoList>> getTodoListsForUser(String userId) async => [];
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<void> insertNote(Note note) async {}
+  @override
+  Future<Note?> getNoteById(String id) async => null;
+  @override
+  Future<List<Note>> getAllNotes(String userId) async => [];
+  @override
+  Future<List<Note>> getAllNotesForSync(String userId) async => [];
+  @override
+  Future<void> updateNote(Note note) async {}
+  @override
+  Future<void> softDeleteNote(String id) async {}
+  @override
+  Future<void> hardDeleteNote(String id) async {}
+  @override
+  Future<List<Note>> getNotesModifiedAfter(
+          DateTime timestamp, String userId) async =>
+      [];
+  @override
+  Future<void> clearAllNotes([String? userId]) async {}
+  @override
+  Future<void> insertTodoList(TodoList todoList) async {}
+  @override
+  Future<void> updateTodoList(TodoList todoList) async {}
+  @override
+  Future<void> deleteTodoList(String id) async {}
+  @override
+  Future<List<TodoList>> getTodoListsForUser(String userId) async => [];
 }
 
 // ---------------------------------------------------------------------------
@@ -38,14 +54,25 @@ class _NullLocalStorage implements ILocalStorageService {
 // ---------------------------------------------------------------------------
 
 class _NullRemoteStorage implements IRemoteStorageService {
-  @override Future<Note> uploadNote(Note note) async => note;
-  @override Future<Note?> downloadNote(String userId, String noteId) async => null;
-  @override Future<List<Note>> downloadAllNotes(String userId) async => [];
-  @override Future<void> deleteNote(String userId, String noteId, {String? remoteId}) async {}
-  @override Stream<List<Note>> watchNotes(String userId) => const Stream.empty();
-  @override Future<void> batchUploadNotes(List<Note> notes) async {}
-  @override Future<String> uploadImage(Uint8List bytes, String filename) async => 'stub-file-id';
-  @override Future<String> getImageUrl(String fileId) async => 'https://example.com/stub.jpg';
+  @override
+  Future<Note> uploadNote(Note note) async => note;
+  @override
+  Future<Note?> downloadNote(String userId, String noteId) async => null;
+  @override
+  Future<List<Note>> downloadAllNotes(String userId) async => [];
+  @override
+  Future<void> deleteNote(String userId, String noteId,
+      {String? remoteId}) async {}
+  @override
+  Stream<List<Note>> watchNotes(String userId) => const Stream.empty();
+  @override
+  Future<void> batchUploadNotes(List<Note> notes) async {}
+  @override
+  Future<String> uploadImage(Uint8List bytes, String filename) async =>
+      'stub-file-id';
+  @override
+  Future<String> getImageUrl(String fileId) async =>
+      'https://example.com/stub.jpg';
 }
 
 // ---------------------------------------------------------------------------
@@ -72,21 +99,28 @@ class StubAuthService implements IAuthService {
   @override
   Future<AuthResult> signInWithEmail(String email, String password) async {
     if (_stubSignInResult.success) {
-      _stubAuthController.add(AuthState(status: AuthStatus.authenticated, user: _stubUser));
+      _stubAuthController
+          .add(AuthState(status: AuthStatus.authenticated, user: _stubUser));
     }
     return _stubSignInResult;
   }
 
   @override
-  Future<AuthResult> signUpWithEmail(String email, String password, {String? displayName}) async {
+  Future<AuthResult> signUpWithEmail(String email, String password,
+      {String? displayName}) async {
     if (_stubSignInResult.success) {
-      _stubAuthController.add(AuthState(status: AuthStatus.authenticated, user: _stubUser));
+      _stubAuthController
+          .add(AuthState(status: AuthStatus.authenticated, user: _stubUser));
     }
     return _stubSignInResult;
   }
 
   @override
   Future<AuthResult> signInWithGmail() async => _stubSignInResult;
+
+  @override
+  Future<AuthResult> resetPassword(String email) async =>
+      AuthResult(success: true);
 
   @override
   Future<bool> restoreSession() async => false;
@@ -103,7 +137,8 @@ class StubAuthService implements IAuthService {
   bool isAuthenticated() => _stubUser != null;
 
   @override
-  Stream<AuthState> get authStateChanges => _stubAuthController.stream.asBroadcastStream();
+  Stream<AuthState> get authStateChanges =>
+      _stubAuthController.stream.asBroadcastStream();
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +169,8 @@ class StubNoteService extends NoteService {
     // Emit current notes immediately
     Future.microtask(() {
       if (!_stubStreamController.isClosed) {
-        _stubStreamController.add(_stubNotes.where((n) => !n.isDeleted).toList());
+        _stubStreamController
+            .add(_stubNotes.where((n) => !n.isDeleted).toList());
       }
     });
     return _stubStreamController.stream;
@@ -149,6 +185,8 @@ class StubNoteService extends NoteService {
     List<String> tags = const [],
     String? color,
     List<String>? imageIds,
+    List<String>? audioIds,
+    bool hidePreview = false,
   }) async {
     final now = DateTime.now();
     final note = Note(
@@ -162,6 +200,8 @@ class StubNoteService extends NoteService {
       tags: tags,
       color: color,
       imageIds: imageIds ?? const [],
+      audioIds: audioIds ?? const [],
+      hidePreview: hidePreview,
     );
     _stubNotes.add(note);
     _stubStreamController.add(_stubNotes.where((n) => !n.isDeleted).toList());
@@ -169,7 +209,19 @@ class StubNoteService extends NoteService {
   }
 
   @override
-  Future<Note> updateNote(Note note, {String? title, String? content, NoteType? type, List<String>? tags, String? color, List<String>? imageIds}) async => note;
+  Future<Note> updateNote(
+    Note note, {
+    String? title,
+    String? content,
+    NoteType? type,
+    List<String>? tags,
+    String? color,
+    bool clearColor = false,
+    List<String>? imageIds,
+    List<String>? audioIds,
+    bool? hidePreview,
+  }) async =>
+      note;
 
   @override
   Future<void> deleteNote(Note note) async {
@@ -178,7 +230,8 @@ class StubNoteService extends NoteService {
   }
 
   @override
-  Future<List<Note>> searchNotes(String userId, String query, {String? tag}) async {
+  Future<List<Note>> searchNotes(String userId, String query,
+      {String? tag}) async {
     final lowerQuery = query.toLowerCase();
     return _stubNotes.where((note) {
       if (note.isDeleted) return false;
@@ -186,7 +239,8 @@ class StubNoteService extends NoteService {
       if (query.isNotEmpty) {
         final matchesTitle = note.title.toLowerCase().contains(lowerQuery);
         final matchesContent = note.content.toLowerCase().contains(lowerQuery);
-        final matchesTag = note.tags.any((t) => t.toLowerCase().contains(lowerQuery));
+        final matchesTag =
+            note.tags.any((t) => t.toLowerCase().contains(lowerQuery));
         if (!matchesTitle && !matchesContent && !matchesTag) return false;
       }
       return true;
@@ -208,8 +262,7 @@ class StubNoteService extends NoteService {
 // ---------------------------------------------------------------------------
 
 class StubSyncEngine extends SyncEngine {
-  StubSyncEngine()
-      : super(_NullLocalStorage(), _NullRemoteStorage());
+  StubSyncEngine() : super(_NullLocalStorage(), _NullRemoteStorage());
 
   @override
   Future<void> start(String userId) async {}

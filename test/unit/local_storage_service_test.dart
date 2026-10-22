@@ -20,13 +20,14 @@ void main() {
     await storage.initialize();
     await storage.clearAllNotes();
   });
-  
+
   tearDown(() async {
     // Clean up
     await storage.clearAllNotes();
   });
 
-  Note createTestNote(String userId, {String title = 'Test', bool isDeleted = false, DateTime? modifiedAt}) {
+  Note createTestNote(String userId,
+      {String title = 'Test', bool isDeleted = false, DateTime? modifiedAt}) {
     final now = DateTime.now();
     return Note(
       id: uuid.v4(),
@@ -50,10 +51,16 @@ void main() {
       expect(retrieved.title, 'Test');
     });
 
-    test('getAllNotes returns only non-deleted notes ordered by modifiedAt DESC', () async {
-      final oldNote = createTestNote('user1', title: 'Old Note', modifiedAt: DateTime.now().subtract(const Duration(days: 1)));
-      final newNote = createTestNote('user1', title: 'New Note', modifiedAt: DateTime.now());
-      final deletedNote = createTestNote('user1', title: 'Deleted', isDeleted: true);
+    test(
+        'getAllNotes returns only non-deleted notes ordered by modifiedAt DESC',
+        () async {
+      final oldNote = createTestNote('user1',
+          title: 'Old Note',
+          modifiedAt: DateTime.now().subtract(const Duration(days: 1)));
+      final newNote = createTestNote('user1',
+          title: 'New Note', modifiedAt: DateTime.now());
+      final deletedNote =
+          createTestNote('user1', title: 'Deleted', isDeleted: true);
 
       await storage.insertNote(oldNote);
       await storage.insertNote(newNote);
@@ -66,10 +73,17 @@ void main() {
       expect(notes.any((n) => n.id == deletedNote.id), isFalse);
     });
 
-    test('getAllNotesForSync returns all notes ordered by modifiedAt ASC', () async {
-      final oldNote = createTestNote('user1', title: 'Old Note', modifiedAt: DateTime.now().subtract(const Duration(days: 1)));
-      final newNote = createTestNote('user1', title: 'New Note', modifiedAt: DateTime.now());
-      final deletedNote = createTestNote('user1', title: 'Deleted', isDeleted: true, modifiedAt: DateTime.now().subtract(const Duration(hours: 12)));
+    test('getAllNotesForSync returns all notes ordered by modifiedAt ASC',
+        () async {
+      final oldNote = createTestNote('user1',
+          title: 'Old Note',
+          modifiedAt: DateTime.now().subtract(const Duration(days: 1)));
+      final newNote = createTestNote('user1',
+          title: 'New Note', modifiedAt: DateTime.now());
+      final deletedNote = createTestNote('user1',
+          title: 'Deleted',
+          isDeleted: true,
+          modifiedAt: DateTime.now().subtract(const Duration(hours: 12)));
 
       await storage.insertNote(newNote); // insert new note first
       await storage.insertNote(oldNote);
@@ -90,7 +104,8 @@ void main() {
 
       final retrieved = await storage.getNoteById(note.id);
       expect(retrieved!.isDeleted, isTrue);
-      expect(retrieved.modifiedAt.isAfter(note.modifiedAt), isTrue); // Timestamp bumped
+      expect(retrieved.modifiedAt.isAfter(note.modifiedAt),
+          isTrue); // Timestamp bumped
     });
 
     test('hardDeleteNote removes the row completely', () async {
@@ -105,10 +120,13 @@ void main() {
 
     test('getNotesModifiedAfter filters correctly', () async {
       final baseTime = DateTime.parse('2024-01-01T12:00:00Z');
-      
-      final note1 = createTestNote('user1', modifiedAt: baseTime.subtract(const Duration(hours: 1)));
-      final note2 = createTestNote('user1', modifiedAt: baseTime.add(const Duration(hours: 1)));
-      final note3 = createTestNote('user2', modifiedAt: baseTime.add(const Duration(hours: 2))); // wrong user
+
+      final note1 = createTestNote('user1',
+          modifiedAt: baseTime.subtract(const Duration(hours: 1)));
+      final note2 = createTestNote('user1',
+          modifiedAt: baseTime.add(const Duration(hours: 1)));
+      final note3 = createTestNote('user2',
+          modifiedAt: baseTime.add(const Duration(hours: 2))); // wrong user
 
       await storage.insertNote(note1);
       await storage.insertNote(note2);

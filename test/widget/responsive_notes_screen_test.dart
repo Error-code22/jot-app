@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:jot_app/screens/responsive_notes_screen.dart';
+import 'package:jot_app/services/app_settings.dart';
+import 'package:jot_app/services/cloudinary_service.dart';
 import 'package:jot_app/services/i_auth_service.dart';
 import 'package:jot_app/services/note_service.dart';
 import 'package:jot_app/services/sync_engine.dart';
@@ -15,8 +17,20 @@ import 'stubs.dart';
 List<Note> _makeTwoNotes() {
   final now = DateTime.now();
   return [
-    Note(id: 'note-1', userId: 'test-user', title: 'Note Alpha', content: 'Content alpha', createdAt: now, modifiedAt: now),
-    Note(id: 'note-2', userId: 'test-user', title: 'Note Beta', content: 'Content beta', createdAt: now, modifiedAt: now),
+    Note(
+        id: 'note-1',
+        userId: 'test-user',
+        title: 'Note Alpha',
+        content: 'Content alpha',
+        createdAt: now,
+        modifiedAt: now),
+    Note(
+        id: 'note-2',
+        userId: 'test-user',
+        title: 'Note Beta',
+        content: 'Content beta',
+        createdAt: now,
+        modifiedAt: now),
   ];
 }
 
@@ -34,9 +48,14 @@ Widget _buildTestApp(List<Note> notes) {
       ChangeNotifierProvider<TodoService>.value(value: todoService),
       ChangeNotifierProvider(create: (_) => ViewModeProvider()),
       ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ChangeNotifierProvider(create: (_) => AppSettings()),
+      Provider(
+          create: (_) =>
+              CloudinaryService(edgeFunctionBaseUrl: 'https://example.com')),
       StreamProvider<AuthState>.value(
         value: auth.authStateChanges,
-        initialData: AuthState(status: AuthStatus.authenticated, user: auth.getCurrentUser()),
+        initialData: AuthState(
+            status: AuthStatus.authenticated, user: auth.getCurrentUser()),
       ),
     ],
     child: const MaterialApp(

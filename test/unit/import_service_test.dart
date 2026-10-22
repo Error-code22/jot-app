@@ -12,27 +12,58 @@ import 'package:jot_app/services/i_local_storage_service.dart';
 class _MemoryStorage implements ILocalStorageService {
   final List<Note> notes = [];
 
-  @override Future<void> initialize() async {}
-  @override Future<void> insertNote(Note note) async { notes.add(note); }
-  @override Future<Note?> getNoteById(String id) async => notes.firstWhere((n) => n.id == id, orElse: () => throw Exception('not found'));
-  @override Future<List<Note>> getAllNotes(String userId) async => notes.where((n) => n.userId == userId && !n.isDeleted).toList();
-  @override Future<List<Note>> getAllNotesForSync(String userId) async => notes.where((n) => n.userId == userId).toList();
-  @override Future<void> updateNote(Note note) async { final i = notes.indexWhere((n) => n.id == note.id); if (i >= 0) notes[i] = note; }
-  @override Future<void> softDeleteNote(String id) async {}
-  @override Future<void> hardDeleteNote(String id) async {}
-  @override Future<List<Note>> getNotesModifiedAfter(DateTime timestamp, String userId) async => [];
-  @override Future<void> clearAllNotes([String? userId]) async { notes.clear(); }
-  @override Future<void> insertTodoList(TodoList todoList) async {}
-  @override Future<void> updateTodoList(TodoList todoList) async {}
-  @override Future<void> deleteTodoList(String id) async {}
-  @override Future<List<TodoList>> getTodoListsForUser(String userId) async => [];
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<void> insertNote(Note note) async {
+    notes.add(note);
+  }
+
+  @override
+  Future<Note?> getNoteById(String id) async =>
+      notes.firstWhere((n) => n.id == id,
+          orElse: () => throw Exception('not found'));
+  @override
+  Future<List<Note>> getAllNotes(String userId) async =>
+      notes.where((n) => n.userId == userId && !n.isDeleted).toList();
+  @override
+  Future<List<Note>> getAllNotesForSync(String userId) async =>
+      notes.where((n) => n.userId == userId).toList();
+  @override
+  Future<void> updateNote(Note note) async {
+    final i = notes.indexWhere((n) => n.id == note.id);
+    if (i >= 0) notes[i] = note;
+  }
+
+  @override
+  Future<void> softDeleteNote(String id) async {}
+  @override
+  Future<void> hardDeleteNote(String id) async {}
+  @override
+  Future<List<Note>> getNotesModifiedAfter(
+          DateTime timestamp, String userId) async =>
+      [];
+  @override
+  Future<void> clearAllNotes([String? userId]) async {
+    notes.clear();
+  }
+
+  @override
+  Future<void> insertTodoList(TodoList todoList) async {}
+  @override
+  Future<void> updateTodoList(TodoList todoList) async {}
+  @override
+  Future<void> deleteTodoList(String id) async {}
+  @override
+  Future<List<TodoList>> getTodoListsForUser(String userId) async => [];
 }
 
 // ---------------------------------------------------------------------------
 // Helper: write a temp file and return its path
 // ---------------------------------------------------------------------------
 
-Future<String> _writeTempFile(Directory dir, String name, String content) async {
+Future<String> _writeTempFile(
+    Directory dir, String name, String content) async {
   final file = File('${dir.path}${Platform.pathSeparator}$name');
   await file.writeAsString(content);
   return file.path;
@@ -121,7 +152,8 @@ void main() {
   // -------------------------------------------------------------------------
   // Property 13 — subfolder file gets "imported" + subfolder name tags
   // -------------------------------------------------------------------------
-  test('subfolder file gets "imported" + subfolder name tags (Property 13)', () async {
+  test('subfolder file gets "imported" + subfolder name tags (Property 13)',
+      () async {
     final subDir = Directory('${tempDir.path}${Platform.pathSeparator}work');
     await subDir.create();
     final file = File('${subDir.path}${Platform.pathSeparator}meeting.txt');

@@ -101,7 +101,7 @@ class ImageCompressService {
     int? quality,
   }) async {
     final results = <CompressResult>[];
-    
+
     for (final file in imageFiles) {
       final result = await compressImage(
         imageFile: file,
@@ -111,7 +111,7 @@ class ImageCompressService {
       );
       results.add(result);
     }
-    
+
     return results;
   }
 
@@ -119,16 +119,20 @@ class ImageCompressService {
   CompressionSettings getOptimalSettings(int fileSizeBytes) {
     if (fileSizeBytes < 500 * 1024) {
       // Under 500KB - minimal compression
-      return const CompressionSettings(maxWidth: 1920, maxHeight: 1920, quality: 90);
+      return const CompressionSettings(
+          maxWidth: 1920, maxHeight: 1920, quality: 90);
     } else if (fileSizeBytes < 2 * 1024 * 1024) {
       // Under 2MB - moderate compression
-      return const CompressionSettings(maxWidth: 1600, maxHeight: 1600, quality: 80);
+      return const CompressionSettings(
+          maxWidth: 1600, maxHeight: 1600, quality: 80);
     } else if (fileSizeBytes < 5 * 1024 * 1024) {
       // Under 5MB - aggressive compression
-      return const CompressionSettings(maxWidth: 1200, maxHeight: 1200, quality: 70);
+      return const CompressionSettings(
+          maxWidth: 1200, maxHeight: 1200, quality: 70);
     } else {
       // Over 5MB - maximum compression
-      return const CompressionSettings(maxWidth: 1024, maxHeight: 1024, quality: 60);
+      return const CompressionSettings(
+          maxWidth: 1024, maxHeight: 1024, quality: 60);
     }
   }
 }
@@ -149,7 +153,8 @@ class CompressResult {
 
   String get originalSizeFormatted => _formatSize(originalSize);
   String get compressedSizeFormatted => _formatSize(compressedSize);
-  String get compressionRatioFormatted => '${compressionRatio.toStringAsFixed(1)}%';
+  String get compressionRatioFormatted =>
+      '${compressionRatio.toStringAsFixed(1)}%';
 
   static String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';

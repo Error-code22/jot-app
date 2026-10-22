@@ -10,12 +10,15 @@ class ViewModeProvider extends ChangeNotifier {
   ViewMode get mode => _mode;
   double get fontSize => _fontSize;
 
-  ViewModeProvider() { _load(); }
+  ViewModeProvider() {
+    _load();
+  }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('view_mode') ?? 'grid';
-    _mode = ViewMode.values.firstWhere((e) => e.name == saved, orElse: () => ViewMode.grid);
+    _mode = ViewMode.values
+        .firstWhere((e) => e.name == saved, orElse: () => ViewMode.grid);
     _fontSize = prefs.getDouble('font_size') ?? 16.0;
     notifyListeners();
   }

@@ -9,11 +9,11 @@ abstract class INoteService {
     NoteType type = NoteType.text,
     List<String>? imageIds,
   });
-  
+
   Future<Note?> getNote(String noteId);
-  
+
   Future<List<Note>> getAllNotes(String userId);
-  
+
   Future<Note> updateNote(
     Note note, {
     String? title,
@@ -21,9 +21,9 @@ abstract class INoteService {
     NoteType? type,
     List<String>? imageIds,
   });
-  
+
   Future<void> deleteNote(Note note);
-  
+
   Stream<List<Note>> watchNotes(String userId);
 
   Future<List<Note>> searchNotes(String userId, String query, {String? tag});

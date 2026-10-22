@@ -35,7 +35,8 @@ void main() {
     testWidgets('shows content text field', (tester) async {
       await tester.pumpWidget(_buildTestApp());
       await tester.pump();
-      expect(find.widgetWithText(TextField, 'Start writing...'), findsOneWidget);
+      expect(
+          find.widgetWithText(TextField, 'Start writing...'), findsOneWidget);
     });
 
     testWidgets('shows checklist toggle button', (tester) async {

@@ -1,7 +1,7 @@
 import 'user_model.dart';
 
 /// Authentication state model for the Jot? application
-/// 
+///
 /// Represents the current authentication status and user information.
 /// Used to track authentication flow progress and manage user session state.
 
@@ -9,13 +9,13 @@ import 'user_model.dart';
 enum AuthStatus {
   /// User is successfully authenticated
   authenticated,
-  
+
   /// User is not authenticated
   unauthenticated,
-  
+
   /// Authentication in progress
   authenticating,
-  
+
   /// Authentication failed with error
   error,
 }
@@ -24,10 +24,10 @@ enum AuthStatus {
 class AuthState {
   /// Current authentication status
   final AuthStatus status;
-  
+
   /// Authenticated user information (optional)
   final User? user;
-  
+
   /// Error message from failed authentication (optional)
   final String? errorMessage;
 
@@ -56,7 +56,7 @@ class AuthState {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is AuthState &&
         other.status == status &&
         other.user == user &&

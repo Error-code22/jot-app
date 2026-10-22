@@ -18,8 +18,9 @@ class ColorUtils {
 
     // In dark mode: slightly darken the color while keeping its hue visible
     final hsl = HSLColor.fromColor(base);
-    final darkened = hsl.withLightness((hsl.lightness * 0.45).clamp(0.15, 0.45))
-                        .withSaturation((hsl.saturation * 0.85).clamp(0.3, 1.0));
+    final darkened = hsl
+        .withLightness((hsl.lightness * 0.45).clamp(0.15, 0.45))
+        .withSaturation((hsl.saturation * 0.85).clamp(0.3, 1.0));
     return darkened.toColor();
   }
 

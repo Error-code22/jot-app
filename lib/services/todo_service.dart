@@ -16,8 +16,18 @@ class TodoService extends ChangeNotifier {
   Future<void> initialize(String userId, ILocalStorageService storage) async {
     _userId = userId;
     _storage = storage;
+    _lists = [];
+    notifyListeners();
     await _migrateFromSharedPreferences();
     await _load();
+  }
+
+  /// Clear in-memory state (used on sign-out / account switch).
+  void clear() {
+    _lists = [];
+    _userId = null;
+    _storage = null;
+    notifyListeners();
   }
 
   /// One-time migration: reads todos from SharedPreferences and writes them to SQLite,
@@ -36,7 +46,8 @@ class TodoService extends ChangeNotifier {
           final todoList = _listFromJson(d as Map<String, dynamic>);
           await _storage!.insertTodoList(todoList);
         } catch (e) {
-          debugPrint('TodoService migration: failed to migrate item, skipping: $e');
+          debugPrint(
+              'TodoService migration: failed to migrate item, skipping: $e');
         }
       }
       await prefs.remove(key);
@@ -56,7 +67,8 @@ class TodoService extends ChangeNotifier {
     }
   }
 
-  Future<TodoList> createList(String title, {String? color, String? icon}) async {
+  Future<TodoList> createList(String title,
+      {String? color, String? icon}) async {
     final list = TodoList(
       id: _uuid.v4(),
       userId: _userId!,
@@ -80,7 +92,8 @@ class TodoService extends ChangeNotifier {
     return list;
   }
 
-  Future<void> updateList(String id, {String? title, String? color, String? icon}) async {
+  Future<void> updateList(String id,
+      {String? title, String? color, String? icon}) async {
     final idx = _lists.indexWhere((l) => l.id == id);
     if (idx == -1) return;
     final snapshot = List<TodoList>.from(_lists);
@@ -108,11 +121,14 @@ class TodoService extends ChangeNotifier {
     }
   }
 
-  Future<TodoList> addItem(String listId, String text, {
+  Future<TodoList> addItem(
+    String listId,
+    String text, {
     DateTime? dueDate,
     TodoPriority priority = TodoPriority.none,
     String? note,
     Recurrence recurrence = Recurrence.none,
+    bool reminderEnabled = false,
   }) async {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
@@ -125,6 +141,7 @@ class TodoService extends ChangeNotifier {
       priority: priority,
       note: note,
       recurrence: recurrence,
+      reminderEnabled: reminderEnabled && dueDate != null,
     );
     final updated = _lists[idx].copyWith(items: [..._lists[idx].items, item]);
     _lists[idx] = updated;
@@ -140,27 +157,36 @@ class TodoService extends ChangeNotifier {
     return updated;
   }
 
-  Future<TodoList> updateItem(String listId, String itemId, {
+  Future<TodoList> updateItem(
+    String listId,
+    String itemId, {
     String? text,
     DateTime? dueDate,
     bool clearDueDate = false,
     TodoPriority? priority,
     String? note,
+    bool clearNote = false,
     Recurrence? recurrence,
+    bool? reminderEnabled,
   }) async {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
     final snapshot = List<TodoList>.from(_lists);
-    final items = _lists[idx].items.map((i) => i.id == itemId
-        ? i.copyWith(
-            text: text,
-            dueDate: dueDate,
-            clearDueDate: clearDueDate,
-            priority: priority,
-            note: note,
-            recurrence: recurrence,
-          )
-        : i).toList();
+    final items = _lists[idx]
+        .items
+        .map((i) => i.id == itemId
+            ? i.copyWith(
+                text: text,
+                dueDate: dueDate,
+                clearDueDate: clearDueDate,
+                priority: priority,
+                note: note,
+                clearNote: clearNote,
+                recurrence: recurrence,
+                reminderEnabled: reminderEnabled,
+              )
+            : i)
+        .toList();
     final updated = _lists[idx].copyWith(items: items);
     _lists[idx] = updated;
     try {
@@ -179,35 +205,29 @@ class TodoService extends ChangeNotifier {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
     final snapshot = List<TodoList>.from(_lists);
-    final items = _lists[idx].items.map((i) {
-      if (i.id != itemId) return i;
-      final toggled = i.copyWith(isDone: !i.isDone);
-      // If marking done and has recurrence, schedule next occurrence
-      if (toggled.isDone && toggled.recurrence != Recurrence.none && toggled.nextRecurrenceDate != null) {
-        final nextItem = TodoItem(
-          id: _uuid.v4(),
-          text: toggled.text,
-          createdAt: DateTime.now(),
-          dueDate: toggled.nextRecurrenceDate,
-          priority: toggled.priority,
-          note: toggled.note,
-          recurrence: toggled.recurrence,
-        );
-        // We'll add it after toggling
-        Future.microtask(() async {
-          await addItem(listId, nextItem.text,
-            dueDate: nextItem.dueDate,
-            priority: nextItem.priority,
-            note: nextItem.note,
-          );
-          // Set recurrence on the new item
-          final newList = _lists.firstWhere((l) => l.id == listId);
-          final newItem = newList.items.last;
-          await updateItem(listId, newItem.id, recurrence: nextItem.recurrence);
-        });
-      }
-      return toggled;
-    }).toList();
+    final items = List<TodoItem>.from(_lists[idx].items);
+    final itemIndex = items.indexWhere((i) => i.id == itemId);
+    if (itemIndex == -1) throw Exception('Item not found');
+
+    final toggled = items[itemIndex].copyWith(isDone: !items[itemIndex].isDone);
+    items[itemIndex] = toggled;
+
+    // If marking done with recurrence, create the next occurrence exactly once.
+    if (toggled.isDone &&
+        toggled.recurrence != Recurrence.none &&
+        toggled.nextRecurrenceDate != null) {
+      items.add(TodoItem(
+        id: _uuid.v4(),
+        text: toggled.text,
+        createdAt: DateTime.now(),
+        dueDate: toggled.nextRecurrenceDate,
+        priority: toggled.priority,
+        note: toggled.note,
+        recurrence: toggled.recurrence,
+        reminderEnabled: toggled.reminderEnabled,
+      ));
+    }
+
     final updated = _lists[idx].copyWith(items: items);
     _lists[idx] = updated;
     try {
@@ -260,7 +280,8 @@ class TodoService extends ChangeNotifier {
     return updated;
   }
 
-  Future<TodoList> reorderItems(String listId, int oldIndex, int newIndex) async {
+  Future<TodoList> reorderItems(
+      String listId, int oldIndex, int newIndex) async {
     final idx = _lists.indexWhere((l) => l.id == listId);
     if (idx == -1) throw Exception('List not found');
     final snapshot = List<TodoList>.from(_lists);
@@ -282,13 +303,15 @@ class TodoService extends ChangeNotifier {
   }
 
   TodoList _listFromJson(Map<String, dynamic> j) => TodoList(
-    id: j['id'],
-    userId: j['userId'],
-    title: j['title'],
-    items: (j['items'] as List).map((i) => TodoItem.fromJson(i as Map<String, dynamic>)).toList(),
-    createdAt: DateTime.parse(j['createdAt']),
-    modifiedAt: DateTime.parse(j['modifiedAt']),
-    color: j['color'] as String?,
-    icon: j['icon'] as String?,
-  );
+        id: j['id'],
+        userId: j['userId'],
+        title: j['title'],
+        items: (j['items'] as List)
+            .map((i) => TodoItem.fromJson(i as Map<String, dynamic>))
+            .toList(),
+        createdAt: DateTime.parse(j['createdAt']),
+        modifiedAt: DateTime.parse(j['modifiedAt']),
+        color: j['color'] as String?,
+        icon: j['icon'] as String?,
+      );
 }

@@ -1,11 +1,11 @@
 /// Result of a synchronization operation
-/// 
+///
 /// Contains statistics about the sync operation including:
 /// - Number of notes uploaded to cloud
 /// - Number of notes downloaded from cloud
 /// - Number of conflicts resolved
 /// - Any errors encountered during sync
-/// 
+///
 /// Validates: Requirements 3.5, 3.6
 class SyncResult {
   final int notesUploaded;

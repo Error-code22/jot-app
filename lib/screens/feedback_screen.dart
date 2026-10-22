@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../services/feedback_service.dart';
 
 class FeedbackScreen extends StatefulWidget {
-  const FeedbackScreen({super.key});
+  final FeedbackType initialType;
+
+  const FeedbackScreen({super.key, this.initialType = FeedbackType.bug});
 
   @override
   State<FeedbackScreen> createState() => _FeedbackScreenState();
@@ -21,13 +23,26 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   @override
   void initState() {
     super.initState();
+    _type = widget.initialType;
     _loadFeedback();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFeedback() async {
     final feedback = Provider.of<FeedbackService>(context, listen: false);
     final items = await feedback.getMyFeedback();
-    if (mounted) setState(() { _myFeedback = items; _isLoading = false; });
+    if (mounted) {
+      setState(() {
+        _myFeedback = items;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -45,7 +60,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       await _loadFeedback();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Submitted! Thank you for your feedback.')),
+          const SnackBar(
+              content: Text('Submitted! Thank you for your feedback.')),
         );
       }
     } catch (e) {
@@ -64,13 +80,16 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bug Reports & Features', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Bug Reports & Features',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           // Submit form
-          Text('Submit Feedback', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text('Submit Feedback',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Form(
             key: _formKey,
@@ -79,8 +98,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 // Type toggle
                 SegmentedButton<FeedbackType>(
                   segments: const [
-                    ButtonSegment(value: FeedbackType.bug, label: Text('Bug'), icon: Icon(Icons.bug_report_outlined)),
-                    ButtonSegment(value: FeedbackType.feature, label: Text('Feature'), icon: Icon(Icons.lightbulb_outline)),
+                    ButtonSegment(
+                        value: FeedbackType.bug,
+                        label: Text('Bug'),
+                        icon: Icon(Icons.bug_report_outlined)),
+                    ButtonSegment(
+                        value: FeedbackType.feature,
+                        label: Text('Feature'),
+                        icon: Icon(Icons.lightbulb_outline)),
                   ],
                   selected: {_type},
                   onSelectionChanged: (s) => setState(() => _type = s.first),
@@ -88,8 +113,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _titleController,
-                  decoration: const InputDecoration(labelText: 'Title', hintText: 'Brief summary...'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  decoration: const InputDecoration(
+                      labelText: 'Title', hintText: 'Brief summary...'),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -100,7 +127,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                     alignLabelWithHint: true,
                   ),
                   maxLines: 5,
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -108,7 +136,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _submit,
                     child: _isSubmitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Submit'),
                   ),
                 ),
@@ -118,32 +149,44 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
           const SizedBox(height: 32),
 
           // My submissions
-          Text('My Submissions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text('My Submissions',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
           else if (_myFeedback.isEmpty)
-            const Text('No submissions yet.', style: TextStyle(color: Colors.grey))
+            const Text('No submissions yet.',
+                style: TextStyle(color: Colors.grey))
           else
             ..._myFeedback.map((item) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: Icon(
-                  item.type == FeedbackType.bug ? Icons.bug_report : Icons.lightbulb,
-                  color: item.type == FeedbackType.bug ? Colors.orange : Colors.green,
-                ),
-                title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(item.description, maxLines: 2, overflow: TextOverflow.ellipsis),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor(item.status).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(
+                      item.type == FeedbackType.bug
+                          ? Icons.bug_report
+                          : Icons.lightbulb,
+                      color: item.type == FeedbackType.bug
+                          ? Colors.orange
+                          : Colors.green,
+                    ),
+                    title: Text(item.title,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(item.description,
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _statusColor(item.status).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(item.status,
+                          style: TextStyle(
+                              fontSize: 11, color: _statusColor(item.status))),
+                    ),
                   ),
-                  child: Text(item.status, style: TextStyle(fontSize: 11, color: _statusColor(item.status))),
-                ),
-              ),
-            )),
+                )),
         ],
       ),
     );
@@ -151,11 +194,16 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'open': return Colors.blue;
-      case 'in_progress': return Colors.orange;
-      case 'resolved': return Colors.green;
-      case 'closed': return Colors.grey;
-      default: return Colors.grey;
+      case 'open':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.orange;
+      case 'resolved':
+        return Colors.green;
+      case 'closed':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 }

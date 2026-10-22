@@ -14,24 +14,36 @@ class MarkdownRenderer {
       if (line.startsWith('### ')) {
         spans.add(TextSpan(
           text: line.substring(4),
-          style: baseStyle.copyWith(fontSize: baseStyle.fontSize != null ? baseStyle.fontSize! * 0.9 : 14, fontWeight: FontWeight.w600),
+          style: baseStyle.copyWith(
+              fontSize:
+                  baseStyle.fontSize != null ? baseStyle.fontSize! * 0.9 : 14,
+              fontWeight: FontWeight.w600),
         ));
       } else if (line.startsWith('## ')) {
         spans.add(TextSpan(
           text: line.substring(3),
-          style: baseStyle.copyWith(fontSize: baseStyle.fontSize != null ? baseStyle.fontSize! * 1.1 : 18, fontWeight: FontWeight.w700),
+          style: baseStyle.copyWith(
+              fontSize:
+                  baseStyle.fontSize != null ? baseStyle.fontSize! * 1.1 : 18,
+              fontWeight: FontWeight.w700),
         ));
       } else if (line.startsWith('# ')) {
         spans.add(TextSpan(
           text: line.substring(2),
-          style: baseStyle.copyWith(fontSize: baseStyle.fontSize != null ? baseStyle.fontSize! * 1.3 : 22, fontWeight: FontWeight.w800),
+          style: baseStyle.copyWith(
+              fontSize:
+                  baseStyle.fontSize != null ? baseStyle.fontSize! * 1.3 : 22,
+              fontWeight: FontWeight.w800),
         ));
       }
       // Bullet lists
       else if (line.startsWith('• ') || line.startsWith('- ')) {
         spans.add(TextSpan(
           children: [
-            TextSpan(text: '  •  ', style: baseStyle.copyWith(color: baseStyle.color?.withValues(alpha: 0.5))),
+            TextSpan(
+                text: '  •  ',
+                style: baseStyle.copyWith(
+                    color: baseStyle.color?.withValues(alpha: 0.5))),
             ..._parseInline(line.substring(2), baseStyle),
           ],
         ));
@@ -41,7 +53,10 @@ class MarkdownRenderer {
         final match = RegExp(r'^(\d+\.\s)(.*)').firstMatch(line)!;
         spans.add(TextSpan(
           children: [
-            TextSpan(text: '  ${match.group(1)}', style: baseStyle.copyWith(color: baseStyle.color?.withValues(alpha: 0.5))),
+            TextSpan(
+                text: '  ${match.group(1)}',
+                style: baseStyle.copyWith(
+                    color: baseStyle.color?.withValues(alpha: 0.5))),
             ..._parseInline(match.group(2)!, baseStyle),
           ],
         ));
@@ -50,7 +65,8 @@ class MarkdownRenderer {
       else if (line.trim() == '---' || line.trim() == '***') {
         spans.add(TextSpan(
           text: '─────────────────────',
-          style: baseStyle.copyWith(color: baseStyle.color?.withValues(alpha: 0.2)),
+          style: baseStyle.copyWith(
+              color: baseStyle.color?.withValues(alpha: 0.2)),
         ));
       }
       // Regular text with inline formatting

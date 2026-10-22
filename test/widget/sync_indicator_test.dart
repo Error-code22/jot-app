@@ -57,33 +57,39 @@ void main() {
   });
 
   group('SyncIndicator pending badge', () {
-    testWidgets('shows orange dot when pendingChanges > 0 and not syncing', (tester) async {
+    testWidgets('shows orange dot when pendingChanges > 0 and not syncing',
+        (tester) async {
       await tester.pumpWidget(_buildIndicator(
         SyncState(status: SyncStatus.idle, pendingChanges: 3),
       ));
       await tester.pump();
 
       // Find the orange 6x6 dot container
-      final orangeDots = tester.widgetList<Container>(find.byType(Container)).where((c) {
+      final orangeDots =
+          tester.widgetList<Container>(find.byType(Container)).where((c) {
         final decoration = c.decoration;
         if (decoration is BoxDecoration) {
-          return decoration.color == Colors.orange && decoration.shape == BoxShape.circle;
+          return decoration.color == Colors.orange &&
+              decoration.shape == BoxShape.circle;
         }
         return false;
       });
       expect(orangeDots.isNotEmpty, isTrue);
     });
 
-    testWidgets('no orange dot when syncing even with pending changes', (tester) async {
+    testWidgets('no orange dot when syncing even with pending changes',
+        (tester) async {
       await tester.pumpWidget(_buildIndicator(
         SyncState(status: SyncStatus.syncing, pendingChanges: 3),
       ));
       await tester.pump();
 
-      final orangeDots = tester.widgetList<Container>(find.byType(Container)).where((c) {
+      final orangeDots =
+          tester.widgetList<Container>(find.byType(Container)).where((c) {
         final decoration = c.decoration;
         if (decoration is BoxDecoration) {
-          return decoration.color == Colors.orange && decoration.shape == BoxShape.circle;
+          return decoration.color == Colors.orange &&
+              decoration.shape == BoxShape.circle;
         }
         return false;
       });

@@ -15,17 +15,20 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   String? _errorMessage;
   bool _isSignUp = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  String? _infoMessage;
 
   @override
   void initState() {
@@ -50,26 +53,46 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    setState(() { _isLoading = true; _errorMessage = null; });
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !_isValidEmail(email)) {
+      setState(() => _errorMessage = 'Enter your email address first.');
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _infoMessage = null;
+    });
     try {
       final authService = Provider.of<IAuthService>(context, listen: false);
-      final result = await authService.signInWithGmail();
+      final result = await authService.resetPassword(email);
       if (!mounted) return;
-      if (result.success) {
-        Navigator.of(context).pushReplacementNamed('/notes');
-      } else {
-        setState(() { _errorMessage = result.errorMessage; _isLoading = false; });
-      }
+      setState(() {
+        _isLoading = false;
+        if (result.success) {
+          _infoMessage = result.errorMessage ?? 'Password reset email sent.';
+        } else {
+          _errorMessage =
+              result.errorMessage ?? 'Could not send the reset email.';
+        }
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _errorMessage = 'Google Sign-In failed'; _isLoading = false; });
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Could not send the reset email.';
+      });
     }
+  }
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(value);
   }
 
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -77,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     try {
       final authService = Provider.of<IAuthService>(context, listen: false);
-      
+
       final result = _isSignUp
           ? await authService.signUpWithEmail(
               _emailController.text.trim(),
@@ -94,16 +117,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
 
       if (result.success) {
-        Navigator.of(context).pushReplacementNamed('/notes');
+        // The AuthGate reacts to the auth stream; no manual navigation needed.
+      } else if (result.emailConfirmationRequired) {
+        setState(() {
+          _isSignUp = false;
+          _isLoading = false;
+          _infoMessage = result.errorMessage;
+        });
       } else {
         setState(() {
-          _errorMessage = result.errorMessage ?? 'Authentication failed. Please try again.';
+          _errorMessage =
+              result.errorMessage ?? 'Authentication failed. Please try again.';
           _isLoading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = 'An unexpected error occurred. Please try again.';
         _isLoading = false;
@@ -114,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: JotGradientBackground(
         child: SafeArea(
@@ -133,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                 ),
               ),
-              
+
               Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -146,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         Hero(
                           tag: 'app_logo',
                           child: Container(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.surface,
                               shape: BoxShape.circle,
@@ -154,17 +184,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                             child: Image.asset(
                               adaptiveLogoPath(context),
-                              width: 60,
-                              height: 60,
-                              errorBuilder: (context, error, stackTrace) => 
-                                Icon(Icons.note_alt_rounded, size: 60, color: theme.colorScheme.primary),
+                              width: 48,
+                              height: 48,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(Icons.note_alt_rounded,
+                                      size: 48,
+                                      color: theme.colorScheme.primary),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
                         Text(
                           'Jot?',
-                          style: theme.textTheme.displayMedium?.copyWith(
+                          style: theme.textTheme.displaySmall?.copyWith(
                             color: theme.colorScheme.primary,
                             letterSpacing: -1,
                           ),
@@ -173,14 +205,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         Text(
                           'Your thoughts, captured elegantly.',
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
-                        const SizedBox(height: 60),
-                        
+                        const SizedBox(height: 24),
+
                         // Login Card
                         JotUI.glassContainer(
-                          padding: const EdgeInsets.all(32),
+                          padding: const EdgeInsets.all(22),
                           child: Form(
                             key: _formKey,
                             child: Column(
@@ -189,40 +222,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 Text(
                                   _isSignUp ? 'Create Account' : 'Welcome Back',
                                   textAlign: TextAlign.center,
-                                  style: theme.textTheme.headlineSmall?.copyWith(
+                                  style:
+                                      theme.textTheme.headlineSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 Text(
                                   _isSignUp
                                       ? 'Sign up to start syncing your notes.'
                                       : 'Sign in to sync your notes across all your devices.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6)),
                                 ),
-                                const SizedBox(height: 32),
-                                
+                                const SizedBox(height: 20),
+
                                 // Name field (sign up only)
                                 if (_isSignUp) ...[
                                   TextFormField(
                                     controller: _nameController,
-                                    style: TextStyle(color: theme.colorScheme.onSurface),
+                                    style: TextStyle(
+                                        color: theme.colorScheme.onSurface),
                                     decoration: const InputDecoration(
                                       labelText: 'Display Name',
                                       prefixIcon: Icon(Icons.person_outline),
                                     ),
-                                    textCapitalization: TextCapitalization.words,
+                                    textCapitalization:
+                                        TextCapitalization.words,
                                   ),
                                   const SizedBox(height: 16),
                                 ],
-                                
+
                                 // Email field
                                 TextFormField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
-                                  style: TextStyle(color: theme.colorScheme.onSurface),
+                                  style: TextStyle(
+                                      color: theme.colorScheme.onSurface),
                                   decoration: const InputDecoration(
                                     labelText: 'Email',
                                     prefixIcon: Icon(Icons.email_outlined),
@@ -231,35 +269,64 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     if (value == null || value.isEmpty) {
                                       return 'Please enter your email';
                                     }
-                                    if (!value.contains('@')) {
+                                    if (!value.contains('@') ||
+                                        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$')
+                                            .hasMatch(value)) {
                                       return 'Please enter a valid email';
                                     }
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                
+
                                 // Password field
                                 TextFormField(
                                   controller: _passwordController,
-                                  obscureText: true,
-                                  style: TextStyle(color: theme.colorScheme.onSurface),
-                                  decoration: const InputDecoration(
+                                  obscureText: _obscurePassword,
+                                  style: TextStyle(
+                                      color: theme.colorScheme.onSurface),
+                                  decoration: InputDecoration(
                                     labelText: 'Password',
-                                    prefixIcon: Icon(Icons.lock_outlined),
+                                    prefixIcon: const Icon(Icons.lock_outlined),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(_obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined),
+                                      tooltip: _obscurePassword
+                                          ? 'Show password'
+                                          : 'Hide password',
+                                      onPressed: () => setState(() =>
+                                          _obscurePassword = !_obscurePassword),
+                                    ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
                                       return 'Please enter your password';
                                     }
-                                    if (_isSignUp && value.length < 6) {
-                                      return 'Password must be at least 6 characters';
+                                    if (_isSignUp && value.length < 8) {
+                                      return 'Password must be at least 8 characters';
                                     }
                                     return null;
                                   },
+                                  onFieldSubmitted: (_) => _handleSubmit(),
                                 ),
-                                const SizedBox(height: 24),
-                                
+                                if (!_isSignUp)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _handleForgotPassword,
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                      ),
+                                      child: const Text('Forgot password?'),
+                                    ),
+                                  ),
+                                const SizedBox(height: 4),
+
                                 if (_isLoading)
                                   const Center(
                                     child: Padding(
@@ -271,7 +338,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   ElevatedButton(
                                     onPressed: _handleSubmit,
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 18),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 18),
                                     ),
                                     child: Text(
                                       _isSignUp ? 'Create Account' : 'Sign In',
@@ -281,48 +349,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                       ),
                                     ),
                                   ),
-                                
-                                const SizedBox(height: 16),
-                                
-                                // Divider
-                                Row(
-                                  children: [
-                                    const Expanded(child: Divider()),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: Text('or', style: TextStyle(
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                        fontSize: 13,
-                                      )),
-                                    ),
-                                    const Expanded(child: Divider()),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                
-                                // Google Sign-In button
-                                OutlinedButton.icon(
-                                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    side: BorderSide(color: theme.colorScheme.outline),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.g_mobiledata_rounded, size: 24),
-                                  label: const Text('Continue with Google',
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                                ),
-                                
-                                const SizedBox(height: 16),
-                                
+
+                                const SizedBox(height: 4),
+
                                 // Toggle sign in/up
                                 TextButton(
                                   onPressed: () {
                                     setState(() {
                                       _isSignUp = !_isSignUp;
                                       _errorMessage = null;
+                                      _infoMessage = null;
                                     });
                                   },
                                   child: Text(
@@ -334,7 +370,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     ),
                                   ),
                                 ),
-                                
+
+                                if (_infoMessage != null) ...[
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.green.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      _infoMessage!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          color: Colors.green, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+
                                 if (_errorMessage != null) ...[
                                   const SizedBox(height: 16),
                                   Container(
@@ -346,7 +400,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     child: Text(
                                       _errorMessage!,
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                                      style: const TextStyle(
+                                          color: Colors.red, fontSize: 13),
                                     ),
                                   ),
                                 ],
@@ -354,13 +409,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 40),
                         RichText(
                           textAlign: TextAlign.center,
                           text: TextSpan(
                             style: TextStyle(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
                                 fontSize: 12),
                             children: [
                               TextSpan(
@@ -371,8 +427,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   fontSize: 12,
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () => Navigator.push(context,
-                                    MaterialPageRoute(builder: (_) => const TermsScreen())),
+                                  ..onTap = () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => const TermsScreen())),
                               ),
                               const TextSpan(text: '  •  '),
                               TextSpan(
@@ -383,8 +441,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   fontSize: 12,
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () => Navigator.push(context,
-                                    MaterialPageRoute(builder: (_) => const PrivacyScreen())),
+                                  ..onTap = () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const PrivacyScreen())),
                               ),
                               const TextSpan(text: '  •  '),
                               TextSpan(
@@ -395,8 +456,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   fontSize: 12,
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () => Navigator.push(context,
-                                    MaterialPageRoute(builder: (_) => const SupportScreen())),
+                                  ..onTap = () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const SupportScreen())),
                               ),
                             ],
                           ),

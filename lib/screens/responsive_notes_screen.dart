@@ -1,28 +1,73 @@
-import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+
 import '../models/note_model.dart';
-import '../services/note_service.dart';
-import '../services/i_auth_service.dart';
+import '../services/app_settings.dart';
 import '../services/cloudinary_service.dart';
+import '../services/feedback_service.dart';
+import '../services/i_auth_service.dart';
+import '../services/note_service.dart';
 import '../services/sync_engine.dart';
 import '../services/todo_service.dart';
-import '../widgets/sync_indicator.dart';
-import '../widgets/jot_ui.dart';
+import '../utils/color_utils.dart';
 import '../utils/theme_provider.dart';
 import '../utils/view_mode_provider.dart';
+import '../widgets/jot_ui.dart';
+import '../widgets/sync_indicator.dart';
 import 'feedback_screen.dart';
-import '../utils/color_utils.dart';
-import 'note_editor_screen.dart';
-import 'settings_screen.dart';
-import 'profile_screen.dart';
-import 'todo_screen.dart';
 import 'import_screen.dart';
+import 'note_editor_screen.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
+import 'todo_screen.dart';
 
-// Remove old _hexToColor helper — now using ColorUtils
 Color? _hexToColor(String? hex) => ColorUtils.fromHex(hex);
+
+List<Note> _filterNotes(
+  List<Note> notes, {
+  required String query,
+  String? tag,
+}) {
+  if (query.isEmpty && tag == null) return notes;
+  final q = query.toLowerCase();
+  return notes.where((note) {
+    if (tag != null && !note.tags.contains(tag)) return false;
+    if (q.isEmpty) return true;
+    return note.title.toLowerCase().contains(q) ||
+        note.content.toLowerCase().contains(q) ||
+        note.tags.any((t) => t.toLowerCase().contains(q));
+  }).toList();
+}
+
+/// Human-readable preview of a note, including checklist content.
+String _previewText(Note note) {
+  if (note.type != NoteType.checklist) return note.content;
+  try {
+    final decoded = jsonDecode(note.content);
+    if (decoded is List) {
+      return decoded
+          .whereType<Map>()
+          .map((item) =>
+              '${item['isChecked'] == true ? '☑' : '☐'} ${item['text'] ?? ''}')
+          .join('\n');
+    }
+  } catch (_) {
+    // Fall through to the raw content for malformed legacy values.
+  }
+  return note.content;
+}
+
+String _formatDate(DateTime date) {
+  final now = DateTime.now();
+  final days = now.difference(date).inDays;
+  if (days == 0) return 'Today';
+  if (days == 1) return 'Yesterday';
+  return '${date.day}/${date.month}';
+}
 
 class ResponsiveNotesScreen extends StatefulWidget {
   const ResponsiveNotesScreen({super.key});
@@ -36,12 +81,15 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
   bool _isCreatingNewNote = false;
   String _searchQuery = '';
   String? _tagFilter;
-  int _currentTab = 0; // 0 = Notes, 1 = Todo
+  int _currentTab = 0;
   bool _fabExpanded = false;
+  bool _isSearching = false;
   final Set<String> _selectedNoteIds = {};
-  bool get _isSelecting => _selectedNoteIds.isNotEmpty;
+  final TextEditingController _searchController = TextEditingController();
   static const double _desktopBreakpoint = 800.0;
   late final Future<List<Note>> _initialNotesFuture;
+
+  bool get _isSelecting => _selectedNoteIds.isNotEmpty;
 
   @override
   void initState() {
@@ -49,28 +97,47 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
     final authService = Provider.of<IAuthService>(context, listen: false);
     final noteService = Provider.of<NoteService>(context, listen: false);
     final user = authService.getCurrentUser();
-    if (user != null) {
-      _initialNotesFuture = noteService.getAllNotes(user.uid);
-    } else {
-      _initialNotesFuture = Future.value([]);
-    }
+    _initialNotesFuture = user == null
+        ? Future.value(const <Note>[])
+        : noteService.getAllNotes(user.uid);
   }
 
-  List<Note> _applyFilters(List<Note> notes) {
-    if (_searchQuery.isEmpty && _tagFilter == null) return notes;
-    return notes.where((note) {
-      // Tag filter: exact match
-      if (_tagFilter != null && !note.tags.contains(_tagFilter)) return false;
-      // Search filter: case-insensitive substring on title, content, or any tag
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        final matchesTitle = note.title.toLowerCase().contains(q);
-        final matchesContent = note.content.toLowerCase().contains(q);
-        final matchesTag = note.tags.any((t) => t.toLowerCase().contains(q));
-        if (!matchesTitle && !matchesContent && !matchesTag) return false;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _setSearch(String value) {
+    setState(() => _searchQuery = value);
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+    });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _openNote(Note note) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => NoteEditorScreen(note: note)),
+    );
+  }
+
+  void _toggleSelection(Note note) {
+    setState(() {
+      if (!_selectedNoteIds.remove(note.id)) {
+        _selectedNoteIds.add(note.id);
       }
-      return true;
-    }).toList();
+    });
   }
 
   @override
@@ -80,7 +147,7 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacementNamed('/login');
+        if (mounted) Navigator.of(context).pushReplacementNamed('/login');
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -95,115 +162,127 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
     );
   }
 
+  // ── Desktop ───────────────────────────────────────────────────────────────
+
   Widget _buildDesktopLayout(String userId) {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: Row(
-        children: [
-          // Left sidebar
-          _buildDesktopSidebar(userId),
-
-          const VerticalDivider(width: 1, thickness: 1),
-
-          // Main content
-          Expanded(
-            child: Column(
-              children: [
-                _buildAppBar(showTitle: false),
-                Expanded(
-                  child: _selectedNote != null || _isCreatingNewNote
-                      ? _DesktopNoteEditor(
-                          note: _selectedNote,
-                          onNoteDeleted: () => setState(() {
-                            _selectedNote = null;
-                            _isCreatingNewNote = false;
-                          }),
-                          onNoteUpdated: (note) => setState(() {
-                            _selectedNote = note;
-                          }),
-                        )
-                      : _buildEmptyEditorState(),
-                ),
-              ],
+      body: SafeArea(
+        child: Row(
+          children: [
+            _buildDesktopSidebar(userId),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildAppBar(showTitle: false, desktop: true),
+                  Expanded(
+                    child: _selectedNote != null || _isCreatingNewNote
+                        ? NoteEditorScreen(
+                            key: ValueKey(
+                                _selectedNote?.id ?? 'new-desktop-note'),
+                            note: _selectedNote,
+                            embedded: true,
+                            onClose: _closeDesktopEditor,
+                          )
+                        : _buildEmptyEditorState(),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  void _closeDesktopEditor() {
+    if (!mounted) return;
+    setState(() {
+      _selectedNote = null;
+      _isCreatingNewNote = false;
+    });
+  }
+
   Widget _buildDesktopSidebar(String userId) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surface,
-      child: SizedBox(
-        width: 320,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                children: [
-                  Hero(
-                    tag: 'app_logo',
-                    child: Icon(Icons.note_alt_rounded,
-                        color: theme.colorScheme.primary, size: 32),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('Jot?',
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                ],
+    return SizedBox(
+      width: 320,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Hero(
+                  tag: 'app_logo',
+                  child: Icon(Icons.note_alt_rounded,
+                      color: theme.colorScheme.primary, size: 32),
+                ),
+                const SizedBox(width: 12),
+                Text('Jot?',
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ElevatedButton.icon(
+              onPressed: () => setState(() {
+                _selectedNote = null;
+                _isCreatingNewNote = true;
+              }),
+              icon: const Icon(Icons.add),
+              label: const Text('New Note'),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _setSearch,
+              decoration: InputDecoration(
+                hintText: 'Search notes...',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _setSearch('');
+                        },
+                      ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                filled: true,
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          if (_tagFilter != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: () => setState(() {
-                  _selectedNote = null;
-                  _isCreatingNewNote = true;
-                }),
-                icon: const Icon(Icons.add),
-                label: const Text('New Note'),
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                onChanged: (v) => setState(() => _searchQuery = v),
-                decoration: InputDecoration(
-                  hintText: 'Search notes...',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  filled: true,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FilterChip(
+                  label: Text('#$_tagFilter'),
+                  selected: true,
+                  onSelected: (_) {},
+                  onDeleted: () => setState(() => _tagFilter = null),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            if (_tagFilter != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: Row(
-                  children: [
-                    FilterChip(
-                      label: Text('#$_tagFilter'),
-                      selected: true,
-                      onSelected: (_) {},
-                      onDeleted: () => setState(() => _tagFilter = null),
-                    ),
-                  ],
-                ),
-              ),
-            Expanded(
-                child: _NotesListPane(
+          Expanded(
+            child: _NotesListPane(
               userId: userId,
               selectedNote: _selectedNote,
               searchQuery: _searchQuery,
@@ -212,17 +291,20 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                 _selectedNote = note;
                 _isCreatingNewNote = false;
               }),
-            )),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  // ── Mobile ────────────────────────────────────────────────────────────────
 
   Widget _buildMobileLayout(String userId) {
     final noteService = Provider.of<NoteService>(context, listen: false);
     final syncEngine = Provider.of<SyncEngine>(context, listen: false);
     final viewMode = Provider.of<ViewModeProvider>(context).mode;
+    final settings = Provider.of<AppSettings>(context);
 
     return JotGradientBackground(
       child: Scaffold(
@@ -230,11 +312,9 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
         appBar: _buildAppBar(),
         body: Stack(
           children: [
-            // Tab content
             IndexedStack(
               index: _currentTab,
               children: [
-                // Notes tab
                 FutureBuilder<List<Note>>(
                   future: _initialNotesFuture,
                   builder: (context, futureSnapshot) {
@@ -247,31 +327,41 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                               child: CircularProgressIndicator());
                         }
                         if (snapshot.hasError) {
-                          return _buildErrorState(snapshot.error.toString());
+                          return _buildErrorState('${snapshot.error}');
                         }
                         if (notes.isEmpty) return _buildEmptyState();
                         return RefreshIndicator(
-                          onRefresh: () async =>
-                              await syncEngine.syncNow(userId),
+                          onRefresh: () async {
+                            try {
+                              await syncEngine.syncNow(userId);
+                            } catch (e) {
+                              _showSnack('Sync failed: $e');
+                            }
+                          },
                           child: Column(
                             children: [
                               if (_tagFilter != null)
                                 Padding(
                                   padding:
                                       const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                                  child: Row(
-                                    children: [
-                                      FilterChip(
-                                        label: Text('#$_tagFilter'),
-                                        selected: true,
-                                        onSelected: (_) {},
-                                        onDeleted: () =>
-                                            setState(() => _tagFilter = null),
-                                      ),
-                                    ],
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FilterChip(
+                                      label: Text('#$_tagFilter'),
+                                      selected: true,
+                                      onSelected: (_) {},
+                                      onDeleted: () =>
+                                          setState(() => _tagFilter = null),
+                                    ),
                                   ),
                                 ),
-                              Expanded(child: _buildNotesView(notes, viewMode)),
+                              Expanded(
+                                child: _buildNotesView(
+                                  notes,
+                                  viewMode,
+                                  hidePreviews: settings.hideNotePreviews,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -279,42 +369,48 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                     );
                   },
                 ),
-                // Todo tab
                 const TodoScreen(),
               ],
             ),
-            // FAB speed dial overlay
             if (_fabExpanded)
-              GestureDetector(
-                onTap: () => setState(() => _fabExpanded = false),
-                child: Container(color: Colors.black.withValues(alpha: 0.4)),
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => setState(() => _fabExpanded = false),
+                  child: ColoredBox(color: Colors.black.withValues(alpha: 0.4)),
+                ),
               ),
-            // Batch operations toolbar
             if (_isSelecting)
               Positioned(
-                bottom: 70,
+                bottom: 12,
                 left: 16,
                 right: 16,
-                child: Card(
-                  elevation: 8,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text('${_selectedNoteIds.length} selected',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                          tooltip: 'Delete selected',
-                          onPressed: _batchDelete,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          tooltip: 'Cancel',
-                          onPressed: () => setState(() => _selectedNoteIds.clear()),
-                        ),
-                      ],
+                child: SafeArea(
+                  top: false,
+                  child: Card(
+                    elevation: 8,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text('${_selectedNoteIds.length} selected',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: Colors.red),
+                            tooltip: 'Delete selected',
+                            onPressed: () => _batchAction('delete'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            tooltip: 'Cancel',
+                            onPressed: () =>
+                                setState(() => _selectedNoteIds.clear()),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -326,6 +422,7 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
           onTap: (i) => setState(() {
             _currentTab = i;
             _fabExpanded = false;
+            if (i != 0) _closeSearch();
           }),
           items: const [
             BottomNavigationBarItem(
@@ -334,7 +431,8 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                 icon: Icon(Icons.checklist_rounded), label: 'To-do'),
           ],
         ),
-        floatingActionButton: _buildSpeedDial(userId),
+        floatingActionButton:
+            _currentTab == 0 && !_isSelecting ? _buildSpeedDial(userId) : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
     );
@@ -361,7 +459,7 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
             label: 'New To-do',
             onTap: () {
               setState(() => _fabExpanded = false);
-              _createTodoList(userId);
+              _createTodoList();
             },
           ),
           const SizedBox(height: 8),
@@ -388,156 +486,149 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
     );
   }
 
-  void _batchDelete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Notes'),
-        content: Text('Delete ${_selectedNoteIds.length} selected notes? This cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final noteService = Provider.of<NoteService>(context, listen: false);
-    final authService = Provider.of<IAuthService>(context, listen: false);
-    final user = authService.getCurrentUser();
-    if (user == null) return;
-    for (final noteId in _selectedNoteIds) {
-      final notes = await noteService.getAllNotes(user.uid);
-      final note = notes.where((n) => n.id == noteId).firstOrNull;
-      if (note != null) await noteService.deleteNote(note);
-    }
-    setState(() => _selectedNoteIds.clear());
-  }
-
-  Future<void> _createTodoList(String userId) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('New To-do List'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'List name...'),
-          onSubmitted: (v) => Navigator.pop(dialogContext, v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, controller.text),
-              child: const Text('Create')),
-        ],
-      ),
-    );
-    if (name != null && name.trim().isNotEmpty && mounted) {
-      final todoService = Provider.of<TodoService>(context, listen: false);
-      final list = await todoService.createList(name.trim());
-      if (!mounted) return;
-      setState(() => _currentTab = 1);
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => TodoDetailScreen(list: list)));
-    }
-  }
-
-  Widget _buildNotesView(List<Note> notes, ViewMode viewMode) {
-    final filtered = _applyFilters(notes);
+  Widget _buildNotesView(
+    List<Note> notes,
+    ViewMode viewMode, {
+    required bool hidePreviews,
+  }) {
+    final filtered = _filterNotes(notes, query: _searchQuery, tag: _tagFilter);
     if (filtered.isEmpty && (_searchQuery.isNotEmpty || _tagFilter != null)) {
-      return const Center(child: Text('No notes match your search'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.search_off_rounded,
+                  size: 48, color: Colors.grey),
+              const SizedBox(height: 8),
+              const Text('No notes match your search',
+                  style: TextStyle(color: Colors.grey)),
+              if (_isSearching)
+                TextButton(
+                  onPressed: _closeSearch,
+                  child: const Text('Clear search'),
+                ),
+            ],
+          ),
+        ),
+      );
     }
+
     switch (viewMode) {
       case ViewMode.grid:
         return MasonryGridView.count(
           crossAxisCount: 2,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: filtered.length,
           addAutomaticKeepAlives: false,
-          itemBuilder: (context, index) => _NoteCard(
-            note: filtered[index],
-            isSelected: _selectedNoteIds.contains(filtered[index].id),
-            isSelecting: _isSelecting,
-            onTagTap: (tag) => setState(() => _tagFilter = tag),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => NoteEditorScreen(note: filtered[index]))),
-            onLongPress: () => setState(() {
-              if (_selectedNoteIds.contains(filtered[index].id)) {
-                _selectedNoteIds.remove(filtered[index].id);
-              } else {
-                _selectedNoteIds.add(filtered[index].id);
-              }
-            }),
-          ),
+          itemBuilder: (context, index) {
+            final note = filtered[index];
+            return _NoteCard(
+              note: note,
+              hidePreview: hidePreviews,
+              isSelected: _selectedNoteIds.contains(note.id),
+              isSelecting: _isSelecting,
+              onTagTap: (tag) => setState(() => _tagFilter = tag),
+              onTap: () =>
+                  _isSelecting ? _toggleSelection(note) : _openNote(note),
+              onLongPress: () => _toggleSelection(note),
+              onShare: () => _shareNoteText(note),
+            );
+          },
         );
       case ViewMode.list:
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: filtered.length,
           addAutomaticKeepAlives: false,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) => _NoteListTile(
-            note: filtered[index],
-            isSelected: _selectedNoteIds.contains(filtered[index].id),
-            isSelecting: _isSelecting,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => NoteEditorScreen(note: filtered[index]))),
-            onLongPress: () => setState(() {
-              if (_selectedNoteIds.contains(filtered[index].id)) {
-                _selectedNoteIds.remove(filtered[index].id);
-              } else {
-                _selectedNoteIds.add(filtered[index].id);
-              }
-            }),
-          ),
+          itemBuilder: (context, index) {
+            final note = filtered[index];
+            return _NoteListTile(
+              note: note,
+              hidePreview: hidePreviews,
+              isSelected: _selectedNoteIds.contains(note.id),
+              isSelecting: _isSelecting,
+              onTap: () =>
+                  _isSelecting ? _toggleSelection(note) : _openNote(note),
+              onLongPress: () => _toggleSelection(note),
+              onShare: () => _shareNoteText(note),
+            );
+          },
         );
       case ViewMode.compact:
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
           itemCount: filtered.length,
           addAutomaticKeepAlives: false,
-          itemBuilder: (context, index) => _NoteCompactTile(
-            note: filtered[index],
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => NoteEditorScreen(note: filtered[index]))),
-          ),
+          itemBuilder: (context, index) {
+            final note = filtered[index];
+            return _NoteCompactTile(
+              note: note,
+              hidePreview: hidePreviews,
+              onTap: () =>
+                  _isSelecting ? _toggleSelection(note) : _openNote(note),
+              onLongPress: () => _toggleSelection(note),
+            );
+          },
         );
     }
   }
 
-  PreferredSizeWidget _buildAppBar({bool showTitle = true}) {
+  // ── App bar and menus ─────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildAppBar({
+    bool showTitle = true,
+    bool desktop = false,
+  }) {
     final syncEngine = Provider.of<SyncEngine>(context, listen: false);
     final authService = Provider.of<IAuthService>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final viewProvider = Provider.of<ViewModeProvider>(context);
     final user = authService.getCurrentUser();
+    final showSearchAction = !desktop && _currentTab == 0;
+
+    Widget? title;
+    if (_isSelecting) {
+      title = Text('${_selectedNoteIds.length} selected',
+          style: const TextStyle(fontWeight: FontWeight.bold));
+    } else if (_isSearching && !desktop) {
+      title = TextField(
+        controller: _searchController,
+        autofocus: true,
+        onChanged: _setSearch,
+        textInputAction: TextInputAction.search,
+        decoration: const InputDecoration(
+          hintText: 'Search notes...',
+          border: InputBorder.none,
+        ),
+      );
+    } else if (showTitle) {
+      title = Text('Jot?',
+          style: Theme.of(context)
+              .textTheme
+              .headlineSmall
+              ?.copyWith(fontWeight: FontWeight.bold));
+    }
 
     return AppBar(
-      title: _isSelecting
-          ? Text('${_selectedNoteIds.length} selected',
-              style: const TextStyle(fontWeight: FontWeight.bold))
-          : (showTitle
-              ? Text('Jot?',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold))
-              : null),
+      title: title,
       centerTitle: false,
       leading: _isSelecting
           ? IconButton(
               icon: const Icon(Icons.close),
+              tooltip: 'Cancel selection',
               onPressed: () => setState(() => _selectedNoteIds.clear()))
-          : null,
+          : (_isSearching && !desktop
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Close search',
+                  onPressed: _closeSearch,
+                )
+              : null),
       actions: _isSelecting
           ? _buildSelectionActions()
           : [
@@ -548,32 +639,29 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                     : const SizedBox(),
               ),
               const SizedBox(width: 4),
-              PopupMenuButton<ViewMode>(
-                icon: Icon(_viewModeIcon(viewProvider.mode)),
-                tooltip: 'View mode',
-                offset: const Offset(0, 48),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                onSelected: (mode) => viewProvider.setMode(mode),
-                itemBuilder: (_) => [
-                  _viewMenuItem(ViewMode.grid, Icons.grid_view_rounded, 'Tiles',
-                      viewProvider.mode),
-                  _viewMenuItem(ViewMode.list, Icons.view_list_rounded, 'List',
-                      viewProvider.mode),
-                  _viewMenuItem(ViewMode.compact, Icons.density_small_rounded,
-                      'Compact', viewProvider.mode),
-                ],
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: Icon(themeProvider.isDark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded),
-                tooltip: themeProvider.isDark ? 'Light mode' : 'Dark mode',
-                onPressed: () => themeProvider.setMode(themeProvider.isDark
-                    ? AppThemeMode.light
-                    : AppThemeMode.dark),
-              ),
+              if (showSearchAction && !_isSearching)
+                IconButton(
+                  icon: const Icon(Icons.search_rounded),
+                  tooltip: 'Search notes',
+                  onPressed: () => setState(() => _isSearching = true),
+                ),
+              if (!desktop)
+                PopupMenuButton<ViewMode>(
+                  icon: Icon(_viewModeIcon(viewProvider.mode)),
+                  tooltip: 'View mode',
+                  offset: const Offset(0, 48),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onSelected: (mode) => viewProvider.setMode(mode),
+                  itemBuilder: (_) => [
+                    _viewMenuItem(ViewMode.grid, Icons.grid_view_rounded,
+                        'Tiles', viewProvider.mode),
+                    _viewMenuItem(ViewMode.list, Icons.view_list_rounded,
+                        'List', viewProvider.mode),
+                    _viewMenuItem(ViewMode.compact, Icons.density_small_rounded,
+                        'Compact', viewProvider.mode),
+                  ],
+                ),
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 offset: const Offset(0, 48),
@@ -592,22 +680,33 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                   ),
                 ),
                 onSelected: (value) {
-                  if (value == 'signout') _handleSignOut(authService);
-                  if (value == 'profile') {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ProfileScreen()));
-                  }
-                  if (value == 'settings') {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const SettingsScreen()));
-                  }
-                  if (value == 'feature') {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const FeedbackScreen()));
-                  }
-                  if (value == 'bug') {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const FeedbackScreen()));
+                  switch (value) {
+                    case 'signout':
+                      _handleSignOut(authService);
+                      break;
+                    case 'profile':
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const ProfileScreen()));
+                      break;
+                    case 'settings':
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const SettingsScreen()));
+                      break;
+                    case 'theme':
+                      themeProvider.setMode(themeProvider.isDark
+                          ? AppThemeMode.light
+                          : AppThemeMode.dark);
+                      break;
+                    case 'feature':
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const FeedbackScreen(
+                              initialType: FeedbackType.feature)));
+                      break;
+                    case 'bug':
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const FeedbackScreen(
+                              initialType: FeedbackType.bug)));
+                      break;
                   }
                 },
                 itemBuilder: (context) => [
@@ -619,11 +718,15 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                         Text(user?.displayName ?? 'Local User',
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface)),
+                                color:
+                                    Theme.of(context).colorScheme.onSurface)),
                         Text(user?.email ?? '',
                             style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.6))),
                       ],
                     ),
                   ),
@@ -642,20 +745,39 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                         SizedBox(width: 12),
                         Text('Settings')
                       ])),
+                  PopupMenuItem(
+                      value: 'theme',
+                      child: Row(children: [
+                        Icon(
+                            themeProvider.isDark
+                                ? Icons.light_mode_rounded
+                                : Icons.dark_mode_rounded,
+                            size: 20),
+                        const SizedBox(width: 12),
+                        Text(themeProvider.isDark
+                            ? 'Light appearance'
+                            : 'Dark appearance')
+                      ])),
                   const PopupMenuDivider(),
                   PopupMenuItem(
                       value: 'feature',
                       child: Row(children: [
-                        Icon(Icons.lightbulb_outline_rounded, size: 20, color: Theme.of(context).colorScheme.primary),
+                        Icon(Icons.lightbulb_outline_rounded,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 12),
                         const Text('Request Feature')
                       ])),
                   PopupMenuItem(
                       value: 'bug',
                       child: Row(children: [
-                        Icon(Icons.bug_report_outlined, size: 20, color: Theme.of(context).colorScheme.error),
+                        Icon(Icons.bug_report_outlined,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.error),
                         const SizedBox(width: 12),
-                        Text('Report Bug', style: TextStyle(color: Theme.of(context).colorScheme.error))
+                        Text('Report Bug',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error))
                       ])),
                   const PopupMenuDivider(),
                   const PopupMenuItem(
@@ -729,6 +851,7 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
   }
 
   Future<void> _batchAction(String action) async {
+    if (_selectedNoteIds.isEmpty) return;
     final noteService = Provider.of<NoteService>(context, listen: false);
     final authService = Provider.of<IAuthService>(context, listen: false);
     final user = authService.getCurrentUser();
@@ -737,16 +860,16 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: Text(
               'Delete ${_selectedNoteIds.length} note${_selectedNoteIds.length == 1 ? '' : 's'}?'),
           content: const Text('This cannot be undone.'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red, foregroundColor: Colors.white),
               child: const Text('Delete'),
@@ -754,94 +877,148 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
           ],
         ),
       );
-      if (confirmed != true) return;
+      if (confirmed != true || !mounted) return;
+    }
 
-      final allNotes = await noteService.getAllNotes(user.uid);
-      for (final note
-          in allNotes.where((n) => _selectedNoteIds.contains(n.id))) {
-        await noteService.deleteNote(note);
-      }
-    } else if (action == 'pin') {
-      final allNotes = await noteService.getAllNotes(user.uid);
-      for (final note
-          in allNotes.where((n) => _selectedNoteIds.contains(n.id))) {
-        await noteService.togglePin(note);
-      }
-    } else if (action == 'tag') {
+    String? tag;
+    if (action == 'tag') {
       final controller = TextEditingController();
-      final tag = await showDialog<String>(
+      tag = await showDialog<String>(
         context: context,
-        builder: (_) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Add tag to selected notes'),
           content: TextField(
             controller: controller,
             autofocus: true,
             decoration:
                 const InputDecoration(hintText: 'Tag name', prefixText: '# '),
-            onSubmitted: (v) => Navigator.pop(context, v),
+            onSubmitted: (v) => Navigator.pop(dialogContext, v),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Cancel')),
             ElevatedButton(
-                onPressed: () => Navigator.pop(context, controller.text),
+                onPressed: () => Navigator.pop(dialogContext, controller.text),
                 child: const Text('Add')),
           ],
         ),
       );
-      if (tag != null && tag.trim().isNotEmpty) {
-        final allNotes = await noteService.getAllNotes(user.uid);
-        for (final note
-            in allNotes.where((n) => _selectedNoteIds.contains(n.id))) {
+      if (tag == null || tag.trim().isEmpty) return;
+    }
+
+    final allNotes = await noteService.getAllNotes(user.uid);
+    final selected = allNotes.where((n) => _selectedNoteIds.contains(n.id));
+    for (final note in selected) {
+      switch (action) {
+        case 'delete':
+          await noteService.deleteNote(note);
+          break;
+        case 'pin':
+          await noteService.togglePin(note);
+          break;
+        case 'tag':
           final newTags =
-              <String>{...note.tags, tag.trim().toLowerCase()}.toList();
+              <String>{...note.tags, tag!.trim().toLowerCase()}.toList();
           await noteService.updateNote(note, tags: newTags);
-        }
+          break;
       }
     }
 
-    setState(() => _selectedNoteIds.clear());
+    if (mounted) setState(() => _selectedNoteIds.clear());
+  }
+
+  Future<void> _createTodoList() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('New To-do List'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'List name...'),
+          onSubmitted: (v) => Navigator.pop(dialogContext, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, controller.text),
+              child: const Text('Create')),
+        ],
+      ),
+    );
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final todoService = Provider.of<TodoService>(context, listen: false);
+    final list = await todoService.createList(name.trim());
+    if (!mounted) return;
+    setState(() => _currentTab = 1);
+    Navigator.push(context,
+        MaterialPageRoute(builder: (_) => TodoDetailScreen(list: list)));
+  }
+
+  void _shareNoteText(Note note) {
+    if (note.isLocked) {
+      _showSnack('Unlock this note before sharing it.');
+      return;
+    }
+    final title = note.title.isEmpty ? 'Jot? Note' : note.title;
+    final content = _previewText(note);
+    Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
   }
 
   Future<void> _handleSignOut(IAuthService authService) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Sign out'),
         content: const Text(
             'Are you sure you want to sign out? Your notes are safely synced to the cloud.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel')),
           ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Sign out')),
         ],
       ),
     );
-    if (confirmed == true) {
-      await authService.signOut();
-      if (mounted) Navigator.of(context).pushReplacementNamed('/login');
-    }
+    if (confirmed != true) return;
+    await authService.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/login');
   }
+
+  // ── States ────────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.notes_rounded, size: 100, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text('Nothing here yet',
-              style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-          Text('Your notes will appear here',
-              style: TextStyle(color: Colors.grey.shade400)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notes_rounded, size: 100, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text('Nothing here yet',
+                style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+            Text('Your notes will appear here',
+                style: TextStyle(color: Colors.grey.shade400)),
+            if (_searchQuery.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: _closeSearch,
+                child: const Text('Clear search'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -858,6 +1035,12 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
                   color: Colors.grey.shade300,
                   fontSize: 20,
                   fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _isCreatingNewNote = true),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('New Note'),
+          ),
         ],
       ),
     );
@@ -865,74 +1048,48 @@ class _ResponsiveNotesScreenState extends State<ResponsiveNotesScreen> {
 
   Widget _buildErrorState(String error) {
     return Center(
-        child:
-            Text('Error: $error', style: const TextStyle(color: Colors.red)));
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text('Could not load notes.\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 8),
+            const Text('Pull down to try again.',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
+// ── Note cards ──────────────────────────────────────────────────────────────
+
 class _NoteCard extends StatelessWidget {
   final Note note;
+  final bool hidePreview;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onShare;
   final bool isSelected;
   final bool isSelecting;
   final void Function(String tag)? onTagTap;
-  const _NoteCard(
-      {required this.note,
-      required this.onTap,
-      required this.onLongPress,
-      this.isSelected = false,
-      this.isSelecting = false,
-      this.onTagTap});
 
-  Future<void> _handleTap(BuildContext context) async {
-    if (isSelecting) {
-      onLongPress(); // toggle selection
-      return;
-    }
-    if (note.isLocked) {
-      final ok = await _showUnlockDialog(context);
-      if (!ok) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Incorrect PIN'), backgroundColor: Colors.red),
-          );
-        }
-        return;
-      }
-    }
-    onTap();
-  }
-
-  Future<bool> _showUnlockDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Locked Note'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          decoration: const InputDecoration(hintText: 'Enter PIN'),
-          onSubmitted: (_) => Navigator.pop(dialogContext, true),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Open')),
-        ],
-      ),
-    );
-    if (result != true || controller.text.length < 4) return false;
-    return note.verifyPin(controller.text);
-  }
+  const _NoteCard({
+    required this.note,
+    required this.hidePreview,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onShare,
+    this.isSelected = false,
+    this.isSelecting = false,
+    this.onTagTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -941,15 +1098,16 @@ class _NoteCard extends StatelessWidget {
     final bgColor = ColorUtils.noteBackground(note.color, isDark, context);
     final textColor = ColorUtils.textColor(bgColor);
     final subTextColor = ColorUtils.secondaryTextColor(bgColor);
+    final hidden = note.isLocked || note.hidePreview || hidePreview;
 
     return InkWell(
-      onTap: () => _handleTap(context),
+      onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(20),
       child: Stack(
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(20),
@@ -964,34 +1122,9 @@ class _NoteCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Thumbnail preview
-                Container(
-                  width: double.infinity,
-                  height: 80,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? ColorUtils.noteBackground(note.color, true, context).withValues(alpha: 0.5)
-                        : (note.color != null ? bgColor.withValues(alpha: 0.3) : theme.colorScheme.primary.withValues(alpha: 0.08)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: note.isLocked
-                      ? const Center(child: Icon(Icons.lock_rounded, size: 28, color: Colors.orange))
-                      : Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Text(
-                            note.content,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.4,
-                              color: textColor.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ),
-                ),
-                if (note.title.isNotEmpty) ...[
+                _buildPreview(context, hidden, textColor),
+                if (note.title.isNotEmpty || note.isPinned) ...[
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       if (note.isPinned)
@@ -1000,32 +1133,56 @@ class _NoteCard extends StatelessWidget {
                           child: Icon(Icons.push_pin_rounded,
                               size: 14, color: theme.colorScheme.primary),
                         ),
+                      if (note.isLocked)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4),
+                          child: Icon(Icons.lock_rounded,
+                              size: 14, color: Colors.orange),
+                        ),
                       Expanded(
-                        child: Text(note.title,
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: textColor)),
+                        child: Text(
+                          note.title.isEmpty ? 'Untitled' : note.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: textColor),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
                 ],
-                note.isLocked
-                    ? Row(children: [
-                        const Icon(Icons.lock_rounded,
-                            size: 16, color: Colors.orange),
-                        const SizedBox(width: 6),
-                        Text('Locked',
-                            style: TextStyle(
-                                color: Colors.orange.shade700, fontSize: 13))
-                      ])
-                    : const SizedBox.shrink(),
-                if (note.tags.isNotEmpty && !note.isLocked) ...[
-                  const SizedBox(height: 8),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(_formatDate(note.modifiedAt),
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: subTextColor,
+                            fontWeight: FontWeight.bold)),
+                    if (note.audioIds.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.graphic_eq_rounded,
+                          size: 13, color: subTextColor),
+                    ],
+                    if (note.imageIds.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.image_outlined, size: 13, color: subTextColor),
+                    ],
+                    const Spacer(),
+                    if (theme.brightness == Brightness.dark)
+                      Icon(Icons.nightlight_round,
+                          size: 10, color: subTextColor.withValues(alpha: 0.4)),
+                  ],
+                ),
+                if (note.tags.isNotEmpty && !hidden) ...[
+                  const SizedBox(height: 6),
                   Wrap(
                     spacing: 4,
+                    runSpacing: 2,
                     children: note.tags
+                        .take(3)
                         .map((tag) => GestureDetector(
                               onTap: () => onTagTap?.call(tag),
                               child: Text('#$tag',
@@ -1037,16 +1194,9 @@ class _NoteCard extends StatelessWidget {
                         .toList(),
                   ),
                 ],
-                const SizedBox(height: 8),
-                Text(_formatDate(note.modifiedAt),
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: subTextColor,
-                        fontWeight: FontWeight.bold)),
               ],
             ),
           ),
-          // Selection checkmark overlay
           if (isSelected)
             Positioned(
               top: 8,
@@ -1060,27 +1210,17 @@ class _NoteCard extends StatelessWidget {
                 ),
                 child: const Icon(Icons.check, size: 16, color: Colors.white),
               ),
-            ),
-          // Share button
-          if (!isSelected)
+            )
+          else if (!isSelecting && !note.isLocked)
             Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: () {
-                  final title = note.title.isEmpty ? 'Jot? Note' : note.title;
-                  final content = note.content;
-                  Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
-                },
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: bgColor.withValues(alpha: 0.8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.share_outlined, size: 14, color: textColor.withValues(alpha: 0.6)),
-                ),
+              top: 6,
+              right: 6,
+              child: _RoundIconButton(
+                icon: Icons.share_outlined,
+                color: bgColor.withValues(alpha: 0.85),
+                iconColor: textColor.withValues(alpha: 0.6),
+                tooltip: 'Share',
+                onTap: onShare,
               ),
             ),
         ],
@@ -1088,11 +1228,126 @@ class _NoteCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    if (now.difference(date).inDays == 0) return 'Today';
-    if (now.difference(date).inDays == 1) return 'Yesterday';
-    return '${date.day}/${date.month}';
+  Widget _buildPreview(BuildContext context, bool hidden, Color textColor) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (hidden) {
+      return Container(
+        width: double.infinity,
+        height: 76,
+        decoration: BoxDecoration(
+          color: textColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              note.isLocked ? Icons.lock_rounded : Icons.visibility_off_rounded,
+              size: 24,
+              color: note.isLocked
+                  ? Colors.orange
+                  : textColor.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              note.isLocked ? 'Locked' : 'Preview hidden',
+              style: TextStyle(
+                  fontSize: 10, color: textColor.withValues(alpha: 0.5)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (note.imageIds.isNotEmpty) {
+      final cloudinary = Provider.of<CloudinaryService>(context, listen: false);
+      final url = cloudinary.getThumbnailUrl(note.imageIds.first, size: 400);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          url,
+          width: double.infinity,
+          height: 90,
+          fit: BoxFit.cover,
+          cacheWidth: 400,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return Container(
+              height: 90,
+              color: textColor.withValues(alpha: 0.05),
+              alignment: Alignment.center,
+              child: const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          },
+          errorBuilder: (_, __, ___) => Container(
+            height: 90,
+            color: textColor.withValues(alpha: 0.05),
+            alignment: Alignment.center,
+            child: Icon(Icons.broken_image_outlined,
+                size: 24, color: textColor.withValues(alpha: 0.4)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      height: 76,
+      decoration: BoxDecoration(
+        color: isDark
+            ? textColor.withValues(alpha: 0.05)
+            : (note.color != null
+                ? textColor.withValues(alpha: 0.05)
+                : theme.colorScheme.primary.withValues(alpha: 0.06)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Text(
+        _previewText(note).isEmpty ? 'Empty note' : _previewText(note),
+        maxLines: 4,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+            fontSize: 11, height: 1.4, color: textColor.withValues(alpha: 0.6)),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Color iconColor;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _RoundIconButton({
+    required this.icon,
+    required this.color,
+    required this.iconColor,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: Icon(icon, size: 15, color: iconColor),
+        ),
+      ),
+    );
   }
 }
 
@@ -1103,74 +1358,74 @@ class _NotesListPane extends StatelessWidget {
   final String? tagFilter;
   final Function(Note) onNoteSelected;
 
-  const _NotesListPane(
-      {required this.userId,
-      required this.selectedNote,
-      required this.searchQuery,
-      this.tagFilter,
-      required this.onNoteSelected});
-
-  List<Note> _applyFilters(List<Note> notes) {
-    if (searchQuery.isEmpty && tagFilter == null) return notes;
-    return notes.where((note) {
-      if (tagFilter != null && !note.tags.contains(tagFilter)) return false;
-      if (searchQuery.isNotEmpty) {
-        final q = searchQuery.toLowerCase();
-        final matchesTitle = note.title.toLowerCase().contains(q);
-        final matchesContent = note.content.toLowerCase().contains(q);
-        final matchesTag = note.tags.any((t) => t.toLowerCase().contains(q));
-        if (!matchesTitle && !matchesContent && !matchesTag) return false;
-      }
-      return true;
-    }).toList();
-  }
+  const _NotesListPane({
+    required this.userId,
+    required this.selectedNote,
+    required this.searchQuery,
+    this.tagFilter,
+    required this.onNoteSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     final noteService = Provider.of<NoteService>(context, listen: false);
-    return FutureBuilder<List<Note>>(
-      future: noteService.getAllNotes(userId),
-      builder: (context, futureSnapshot) {
-        return StreamBuilder<List<Note>>(
-          stream: noteService.watchNotes(userId),
-          builder: (context, snapshot) {
-            final notes = snapshot.data ?? futureSnapshot.data;
-            if (notes == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final filtered = _applyFilters(notes);
-            if (filtered.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    (searchQuery.isEmpty && tagFilter == null)
-                        ? 'No notes yet.\nTap + New Note to start.'
-                        : 'No notes match your search',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ),
-              );
-            }
-            return ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final note = filtered[index];
-                final isSelected = selectedNote?.id == note.id;
-                return ListTile(
-                  selected: isSelected,
-                  onTap: () => onNoteSelected(note),
-                  title: Text(note.title.isEmpty ? 'Untitled' : note.title,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(note.content,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                );
-              },
+    return StreamBuilder<List<Note>>(
+      stream: noteService.watchNotes(userId),
+      builder: (context, snapshot) {
+        final notes = snapshot.data;
+        if (notes == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final filtered =
+            _filterNotes(notes, query: searchQuery, tag: tagFilter);
+        if (filtered.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                (searchQuery.isEmpty && tagFilter == null)
+                    ? 'No notes yet.\nTap + New Note to start.'
+                    : 'No notes match your search',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
+        }
+        return ListView.builder(
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final note = filtered[index];
+            final selected = selectedNote?.id == note.id;
+            final hidden = note.isLocked || note.hidePreview;
+            return ListTile(
+              selected: selected,
+              onTap: () => onNoteSelected(note),
+              leading: SizedBox(
+                width: 32,
+                child: note.isLocked
+                    ? const Icon(Icons.lock_rounded,
+                        size: 18, color: Colors.orange)
+                    : (note.imageIds.isNotEmpty
+                        ? const Icon(Icons.image_outlined, size: 18)
+                        : Icon(
+                            note.type == NoteType.checklist
+                                ? Icons.checklist_rounded
+                                : Icons.notes_rounded,
+                            size: 18,
+                            color: Colors.grey)),
+              ),
+              title: Text(note.title.isEmpty ? 'Untitled' : note.title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(hidden ? 'Preview hidden' : _previewText(note),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              trailing: note.audioIds.isNotEmpty
+                  ? const Icon(Icons.graphic_eq_rounded, size: 16)
+                  : null,
             );
           },
         );
@@ -1179,131 +1434,24 @@ class _NotesListPane extends StatelessWidget {
   }
 }
 
-class _DesktopNoteEditor extends StatefulWidget {
-  final Note? note;
-  final VoidCallback onNoteDeleted;
-  final Function(Note) onNoteUpdated;
-  const _DesktopNoteEditor(
-      {required this.note,
-      required this.onNoteDeleted,
-      required this.onNoteUpdated});
-
-  @override
-  State<_DesktopNoteEditor> createState() => _DesktopNoteEditorState();
-}
-
-class _DesktopNoteEditorState extends State<_DesktopNoteEditor> {
-  late TextEditingController _titleController;
-  late TextEditingController _contentController;
-  Timer? _debounceTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.note?.title ?? '');
-    _contentController =
-        TextEditingController(text: widget.note?.content ?? '');
-    _titleController.addListener(_onChanged);
-    _contentController.addListener(_onChanged);
-  }
-
-  @override
-  void didUpdateWidget(_DesktopNoteEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.note?.id != widget.note?.id) {
-      _titleController.text = widget.note?.title ?? '';
-      _contentController.text = widget.note?.content ?? '';
-    }
-  }
-
-  void _onChanged() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), _save);
-  }
-
-  Future<void> _save() async {
-    final noteService = Provider.of<NoteService>(context, listen: false);
-    final authService = Provider.of<IAuthService>(context, listen: false);
-    final user = authService.getCurrentUser();
-    if (user == null) return;
-
-    if (widget.note == null) {
-      final newNote = await noteService.createNote(
-          userId: user.uid,
-          title: _titleController.text,
-          content: _contentController.text);
-      widget.onNoteUpdated(newNote);
-    } else {
-      final updated = await noteService.updateNote(widget.note!,
-          title: _titleController.text, content: _contentController.text);
-      widget.onNoteUpdated(updated);
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    _titleController.dispose();
-    _contentController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-                hintText: 'Title', border: InputBorder.none),
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: TextField(
-              controller: _contentController,
-              decoration: const InputDecoration(
-                  hintText: 'Start writing...', border: InputBorder.none),
-              maxLines: null,
-              style: const TextStyle(fontSize: 18, height: 1.6),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                onPressed: () async {
-                  if (widget.note != null) {
-                    await Provider.of<NoteService>(context, listen: false)
-                        .deleteNote(widget.note!);
-                    widget.onNoteDeleted();
-                  }
-                },
-                icon: const Icon(Icons.delete_outline_rounded),
-                color: Colors.red,
-              ),
-                    ],
-                  ),
-                ],
-              ),
-    );
-  }
-}
-
 class _NoteListTile extends StatelessWidget {
   final Note note;
+  final bool hidePreview;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback onShare;
   final bool isSelected;
   final bool isSelecting;
-  const _NoteListTile(
-      {required this.note,
-      required this.onTap,
-      this.onLongPress,
-      this.isSelected = false,
-      this.isSelecting = false});
+
+  const _NoteListTile({
+    required this.note,
+    required this.hidePreview,
+    required this.onTap,
+    required this.onShare,
+    this.onLongPress,
+    this.isSelected = false,
+    this.isSelecting = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1311,52 +1459,40 @@ class _NoteListTile extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final bgColor = ColorUtils.noteBackground(note.color, isDark, context);
     final textColor = ColorUtils.textColor(bgColor);
+    final hidden = note.isLocked || note.hidePreview || hidePreview;
 
     Widget thumbnail;
-    if (note.imageIds.isNotEmpty) {
+    if (!hidden && note.imageIds.isNotEmpty) {
       final cloudinary = Provider.of<CloudinaryService>(context, listen: false);
       thumbnail = ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Image.network(
-          cloudinary.getDirectUrl(note.imageIds.first),
+          cloudinary.getThumbnailUrl(note.imageIds.first, size: 120),
           width: 48,
           height: 48,
-          cacheWidth: 96,
-          cacheHeight: 96,
+          cacheWidth: 120,
+          cacheHeight: 120,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.image, size: 18, color: textColor.withValues(alpha: 0.5)),
-          ),
+          errorBuilder: (_, __, ___) => _thumbPlaceholder(
+              Icons.broken_image_outlined, bgColor, textColor),
         ),
       );
     } else {
-      thumbnail = Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: isDark ? Border.all(color: const Color(0xFF313244), width: 1) : null,
-        ),
-        child: note.isLocked
-            ? const Center(child: Icon(Icons.lock_rounded, size: 18, color: Colors.orange))
-            : Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  note.content,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 7, height: 1.3, color: textColor.withValues(alpha: 0.7)),
-                ),
-              ),
-      );
+      thumbnail = hidden
+          ? _thumbPlaceholder(
+              note.isLocked ? Icons.lock_rounded : Icons.visibility_off_rounded,
+              bgColor,
+              note.isLocked ? Colors.orange : textColor)
+          : _thumbPlaceholder(
+              note.type == NoteType.checklist
+                  ? Icons.checklist_rounded
+                  : Icons.notes_rounded,
+              bgColor,
+              textColor);
     }
 
     return InkWell(
-      onTap: isSelecting ? onLongPress : onTap,
+      onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -1375,7 +1511,7 @@ class _NoteListTile extends StatelessWidget {
           children: [
             if (isSelected)
               Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 8),
                 child: Icon(Icons.check_circle_rounded,
                     color: theme.colorScheme.primary),
               ),
@@ -1411,41 +1547,78 @@ class _NoteListTile extends StatelessWidget {
                       Text(_formatDate(note.modifiedAt),
                           style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? Colors.grey : Colors.grey.shade500)),
-                      const SizedBox(width: 4),
-                      PopupMenuButton<String>(
-                        icon: Icon(Icons.more_vert_rounded, size: 16, color: textColor.withValues(alpha: 0.5)),
-                        onSelected: (value) {
-                          if (value == 'share') _shareNote(context);
-                          if (value == 'delete') _deleteNote(context);
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'share', child: Text('Share')),
-                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                      ),
+                              color:
+                                  isDark ? Colors.grey : Colors.grey.shade500)),
+                      if (!note.isLocked && !isSelecting)
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert_rounded,
+                              size: 16,
+                              color: textColor.withValues(alpha: 0.5)),
+                          tooltip: 'Note actions',
+                          onSelected: (value) {
+                            if (value == 'share') onShare();
+                            if (value == 'delete') _deleteNote(context);
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'share', child: Text('Share')),
+                            PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete',
+                                    style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  if (!note.isLocked)
-                    Text(note.content,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                            fontSize: 13)),
-                  if (note.tags.isNotEmpty && !note.isLocked) ...[
+                  Text(
+                    hidden
+                        ? (note.isLocked ? 'Locked' : 'Preview hidden')
+                        : (_previewText(note).isEmpty
+                            ? 'Empty note'
+                            : _previewText(note)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: hidden
+                            ? (note.isLocked
+                                ? Colors.orange.shade700
+                                : Colors.grey)
+                            : (isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600),
+                        fontSize: 13),
+                  ),
+                  if ((note.tags.isNotEmpty && !hidden) ||
+                      note.audioIds.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Wrap(
-                        spacing: 4,
-                        children: note.tags
-                            .take(3)
-                            .map((tag) => Text('#$tag',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                                    fontWeight: FontWeight.w600)))
-                            .toList()),
+                    Row(
+                      children: [
+                        if (note.audioIds.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(Icons.graphic_eq_rounded,
+                                size: 13,
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.7)),
+                          ),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 4,
+                            children: hidden
+                                ? const []
+                                : note.tags
+                                    .take(3)
+                                    .map((tag) => Text('#$tag',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: theme.colorScheme.primary
+                                                .withValues(alpha: 0.7),
+                                            fontWeight: FontWeight.w600)))
+                                    .toList(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -1456,30 +1629,33 @@ class _NoteListTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    if (now.difference(date).inDays == 0) return 'Today';
-    if (now.difference(date).inDays == 1) return 'Yesterday';
-    return '${date.day}/${date.month}';
-  }
-
-  void _shareNote(BuildContext context) {
-    final title = note.title.isEmpty ? 'Jot? Note' : note.title;
-    final content = note.content;
-    Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
+  Widget _thumbPlaceholder(IconData icon, Color bgColor, Color iconColor) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 20, color: iconColor.withValues(alpha: 0.6)),
+    );
   }
 
   void _deleteNote(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Note'),
         content: const Text('This will remove the note from all your devices.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade400,
+                foregroundColor: Colors.white),
             child: const Text('Delete'),
           ),
         ],
@@ -1493,17 +1669,27 @@ class _NoteListTile extends StatelessWidget {
 
 class _NoteCompactTile extends StatelessWidget {
   final Note note;
+  final bool hidePreview;
   final VoidCallback onTap;
-  const _NoteCompactTile({required this.note, required this.onTap});
+  final VoidCallback onLongPress;
+
+  const _NoteCompactTile({
+    required this.note,
+    required this.hidePreview,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textColor =
         theme.brightness == Brightness.dark ? Colors.white : Colors.black87;
+    final hidden = note.isLocked || note.hidePreview || hidePreview;
 
     return ListTile(
       onTap: onTap,
+      onLongPress: onLongPress,
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       leading: Container(
@@ -1521,6 +1707,17 @@ class _NoteCompactTile extends StatelessWidget {
               padding: EdgeInsets.only(right: 4),
               child: Icon(Icons.lock_rounded, size: 12, color: Colors.orange),
             ),
+          if (note.isPinned)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(Icons.push_pin_rounded,
+                  size: 12, color: theme.colorScheme.primary),
+            ),
+          if (note.audioIds.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.graphic_eq_rounded, size: 12),
+            ),
           Expanded(
             child: Text(
               note.title.isEmpty ? 'Untitled' : note.title,
@@ -1532,40 +1729,21 @@ class _NoteCompactTile extends StatelessWidget {
           ),
         ],
       ),
-      subtitle: note.isLocked
-          ? Text('Locked',
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade700))
-          : Text(
-              note.content,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 12, color: textColor.withValues(alpha: 0.6)),
-            ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_formatDate(note.modifiedAt),
-              style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: () {
-              final title = note.title.isEmpty ? 'Jot? Note' : note.title;
-              final content = note.content;
-              Share.share(title.isEmpty ? content : '$title\n\n$content', subject: title);
-            },
-            child: Icon(Icons.share_outlined, size: 16, color: textColor.withValues(alpha: 0.4)),
-          ),
-        ],
+      subtitle: Text(
+        hidden
+            ? (note.isLocked ? 'Locked' : 'Preview hidden')
+            : (_previewText(note).isEmpty ? 'Empty note' : _previewText(note)),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+            fontSize: 12,
+            color: hidden
+                ? (note.isLocked ? Colors.orange.shade700 : Colors.grey)
+                : textColor.withValues(alpha: 0.6)),
       ),
+      trailing: Text(_formatDate(note.modifiedAt),
+          style: const TextStyle(fontSize: 10, color: Colors.grey)),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    if (now.difference(date).inDays == 0) return 'Today';
-    if (now.difference(date).inDays == 1) return 'Yesterday';
-    return '${date.day}/${date.month}';
   }
 }
 
@@ -1573,8 +1751,12 @@ class _SpeedDialItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _SpeedDialItem(
-      {required this.icon, required this.label, required this.onTap});
+
+  const _SpeedDialItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

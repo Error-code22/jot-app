@@ -1,16 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/todo_model.dart';
+import '../services/app_settings.dart';
+import '../services/notification_service.dart';
 import '../services/todo_service.dart';
+
+/// Rebuilds the notification schedule after a task or reminder changes.
+Future<void> _rescheduleTodoReminders(BuildContext context) async {
+  final settings = Provider.of<AppSettings>(context, listen: false);
+  final notifications =
+      Provider.of<NotificationService>(context, listen: false);
+  final todos = Provider.of<TodoService>(context, listen: false);
+  try {
+    if (settings.todoReminders) {
+      await notifications.rescheduleAll(todos);
+    } else {
+      await notifications.cancelAll();
+    }
+  } catch (_) {
+    // Notification failures must never block task editing.
+  }
+}
 
 // ─── Color palette for lists ────────────────────────────────────────────────
 const _kListColors = [
-  null, '#FFCDD2', '#FFE0B2', '#FFF9C4',
-  '#C8E6C9', '#B2EBF2', '#BBDEFB', '#E1BEE7', '#F8BBD0',
+  null,
+  '#FFCDD2',
+  '#FFE0B2',
+  '#FFF9C4',
+  '#C8E6C9',
+  '#B2EBF2',
+  '#BBDEFB',
+  '#E1BEE7',
+  '#F8BBD0',
 ];
 
 const _kListIcons = [
-  '📋', '🛒', '💼', '🏠', '🎯', '📚', '💪', '✈️', '🎉', '❤️',
+  '📋',
+  '🛒',
+  '💼',
+  '🏠',
+  '🎯',
+  '📚',
+  '💪',
+  '✈️',
+  '🎉',
+  '❤️',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -21,27 +56,35 @@ Color? _hexToColor(String? hex) {
 
 Color _priorityColor(TodoPriority p) {
   switch (p) {
-    case TodoPriority.high:   return Colors.red.shade400;
-    case TodoPriority.medium: return Colors.orange.shade400;
-    case TodoPriority.low:    return Colors.blue.shade300;
-    case TodoPriority.none:   return Colors.transparent;
+    case TodoPriority.high:
+      return Colors.red.shade400;
+    case TodoPriority.medium:
+      return Colors.orange.shade400;
+    case TodoPriority.low:
+      return Colors.blue.shade300;
+    case TodoPriority.none:
+      return Colors.transparent;
   }
 }
 
 String _priorityLabel(TodoPriority p) {
   switch (p) {
-    case TodoPriority.high:   return 'High';
-    case TodoPriority.medium: return 'Medium';
-    case TodoPriority.low:    return 'Low';
-    case TodoPriority.none:   return 'None';
+    case TodoPriority.high:
+      return 'High';
+    case TodoPriority.medium:
+      return 'Medium';
+    case TodoPriority.low:
+      return 'Low';
+    case TodoPriority.none:
+      return 'None';
   }
 }
 
 String _formatDue(DateTime d) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final due   = DateTime(d.year, d.month, d.day);
-  final diff  = due.difference(today).inDays;
+  final due = DateTime(d.year, d.month, d.day);
+  final diff = due.difference(today).inDays;
   if (diff == 0) return 'Today';
   if (diff == 1) return 'Tomorrow';
   if (diff == -1) return 'Yesterday';
@@ -64,12 +107,17 @@ class TodoScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.checklist_rounded, size: 80, color: Colors.grey.shade300),
+            Icon(Icons.checklist_rounded,
+                size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text('No to-do lists yet',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 18, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('Tap + to create one', style: TextStyle(color: Colors.grey.shade400)),
+            Text('Tap + to create one',
+                style: TextStyle(color: Colors.grey.shade400)),
           ],
         ),
       );
@@ -77,8 +125,8 @@ class TodoScreen extends StatelessWidget {
 
     // Summary row
     final totalItems = lists.fold<int>(0, (s, l) => s + l.totalCount);
-    final doneItems  = lists.fold<int>(0, (s, l) => s + l.doneCount);
-    final overdue    = lists.fold<int>(0, (s, l) => s + l.overdueCount);
+    final doneItems = lists.fold<int>(0, (s, l) => s + l.doneCount);
+    final overdue = lists.fold<int>(0, (s, l) => s + l.overdueCount);
 
     return Column(
       children: [
@@ -93,12 +141,24 @@ class TodoScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _SummaryChip(label: 'Lists', value: '${lists.length}', icon: Icons.list_rounded),
-              _SummaryChip(label: 'Tasks', value: '$totalItems', icon: Icons.task_alt_rounded),
-              _SummaryChip(label: 'Done', value: '$doneItems', icon: Icons.check_circle_outline_rounded,
+              _SummaryChip(
+                  label: 'Lists',
+                  value: '${lists.length}',
+                  icon: Icons.list_rounded),
+              _SummaryChip(
+                  label: 'Tasks',
+                  value: '$totalItems',
+                  icon: Icons.task_alt_rounded),
+              _SummaryChip(
+                  label: 'Done',
+                  value: '$doneItems',
+                  icon: Icons.check_circle_outline_rounded,
                   color: Colors.green),
               if (overdue > 0)
-                _SummaryChip(label: 'Overdue', value: '$overdue', icon: Icons.warning_amber_rounded,
+                _SummaryChip(
+                    label: 'Overdue',
+                    value: '$overdue',
+                    icon: Icons.warning_amber_rounded,
                     color: Colors.red),
             ],
           ),
@@ -120,7 +180,11 @@ class _SummaryChip extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
-  const _SummaryChip({required this.label, required this.value, required this.icon, this.color});
+  const _SummaryChip(
+      {required this.label,
+      required this.value,
+      required this.icon,
+      this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +194,9 @@ class _SummaryChip extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: c),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c)),
+        Text(value,
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c)),
         Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
       ],
     );
@@ -146,7 +212,8 @@ class _TodoListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = _hexToColor(list.color) ?? (isDark ? const Color(0xFF1E1E2E) : Colors.white);
+    final bg = _hexToColor(list.color) ??
+        (isDark ? const Color(0xFF1E1E2E) : Colors.white);
 
     return GestureDetector(
       onTap: () => Navigator.push(context,
@@ -158,9 +225,14 @@ class _TodoListCard extends StatelessWidget {
           color: bg,
           borderRadius: BorderRadius.circular(20),
           border: isDark ? Border.all(color: const Color(0xFF313244)) : null,
-          boxShadow: isDark ? [] : [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
-          ],
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,26 +242,32 @@ class _TodoListCard extends StatelessWidget {
                 if (list.icon != null)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Text(list.icon!, style: const TextStyle(fontSize: 20)),
+                    child:
+                        Text(list.icon!, style: const TextStyle(fontSize: 20)),
                   ),
                 Expanded(
                   child: Text(list.title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
                 if (list.overdueCount > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.red.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text('${list.overdueCount} overdue',
-                        style: TextStyle(fontSize: 11, color: Colors.red.shade600,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red.shade600,
                             fontWeight: FontWeight.w600)),
                   ),
                 const SizedBox(width: 8),
                 Text('${list.doneCount}/${list.totalCount}',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 12)),
               ],
             ),
             if (list.totalCount > 0) ...[
@@ -199,42 +277,51 @@ class _TodoListCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: list.progress,
                   backgroundColor: Colors.grey.shade200,
-                  color: list.progress == 1.0 ? Colors.green : theme.colorScheme.primary,
+                  color: list.progress == 1.0
+                      ? Colors.green
+                      : theme.colorScheme.primary,
                   minHeight: 6,
                 ),
               ),
             ],
             if (list.items.isNotEmpty) ...[
               const SizedBox(height: 10),
-              ...list.items.where((i) => !i.isDone).take(3).map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    if (item.priority != TodoPriority.none)
-                      Container(
-                        width: 8, height: 8,
-                        margin: const EdgeInsets.only(right: 6),
-                        decoration: BoxDecoration(
-                          color: _priorityColor(item.priority),
-                          shape: BoxShape.circle,
+              ...list.items
+                  .where((i) => !i.isDone)
+                  .take(3)
+                  .map((item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            if (item.priority != TodoPriority.none)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: _priorityColor(item.priority),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            Icon(Icons.radio_button_unchecked_rounded,
+                                size: 14, color: Colors.grey.shade400),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(item.text,
+                                  style: const TextStyle(fontSize: 13),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            if (item.dueDate != null)
+                              Text(_formatDue(item.dueDate!),
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: item.isOverdue
+                                          ? Colors.red
+                                          : Colors.grey.shade400)),
+                          ],
                         ),
-                      ),
-                    Icon(Icons.radio_button_unchecked_rounded,
-                        size: 14, color: Colors.grey.shade400),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(item.text,
-                          style: const TextStyle(fontSize: 13),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (item.dueDate != null)
-                      Text(_formatDue(item.dueDate!),
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: item.isOverdue ? Colors.red : Colors.grey.shade400)),
-                  ],
-                ),
-              )),
+                      )),
               if (list.items.where((i) => !i.isDone).length > 3)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -248,10 +335,13 @@ class _TodoListCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, size: 14, color: Colors.green),
+                      const Icon(Icons.check_circle_rounded,
+                          size: 14, color: Colors.green),
                       const SizedBox(width: 4),
                       Text('All done!',
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade600,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
                               fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -298,7 +388,7 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
 
   List<TodoItem> _sorted(List<TodoItem> items) {
     final pending = items.where((i) => !i.isDone).toList();
-    final done    = items.where((i) => i.isDone).toList();
+    final done = items.where((i) => i.isDone).toList();
     switch (_sortMode) {
       case _SortMode.priority:
         pending.sort((a, b) => b.priority.index.compareTo(a.priority.index));
@@ -373,7 +463,8 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
             if (current.icon != null)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Text(current.icon!, style: const TextStyle(fontSize: 22)),
+                child:
+                    Text(current.icon!, style: const TextStyle(fontSize: 22)),
               ),
             Expanded(
               child: Text(current.title,
@@ -427,7 +518,8 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                 // Sort picker
                 PopupMenuButton<_SortMode>(
                   initialValue: _sortMode,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   onSelected: (m) => setState(() => _sortMode = m),
                   child: Chip(
                     avatar: const Icon(Icons.sort_rounded, size: 16),
@@ -436,10 +528,14 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                     visualDensity: VisualDensity.compact,
                   ),
                   itemBuilder: (_) => [
-                    _sortMenuItem(_SortMode.manual, 'Manual', Icons.drag_handle_rounded),
-                    _sortMenuItem(_SortMode.priority, 'Priority', Icons.flag_rounded),
-                    _sortMenuItem(_SortMode.dueDate, 'Due date', Icons.calendar_today_rounded),
-                    _sortMenuItem(_SortMode.alphabetical, 'A–Z', Icons.sort_by_alpha_rounded),
+                    _sortMenuItem(
+                        _SortMode.manual, 'Manual', Icons.drag_handle_rounded),
+                    _sortMenuItem(
+                        _SortMode.priority, 'Priority', Icons.flag_rounded),
+                    _sortMenuItem(_SortMode.dueDate, 'Due date',
+                        Icons.calendar_today_rounded),
+                    _sortMenuItem(_SortMode.alphabetical, 'A–Z',
+                        Icons.sort_by_alpha_rounded),
                   ],
                 ),
                 const SizedBox(width: 8),
@@ -449,11 +545,15 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                     onTap: () => setState(() => _showDone = !_showDone),
                     child: Chip(
                       avatar: Icon(
-                        _showDone ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                        _showDone
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
                         size: 16,
                       ),
                       label: Text(
-                        _showDone ? 'Hide done' : 'Show done (${current.doneCount})',
+                        _showDone
+                            ? 'Hide done'
+                            : 'Show done (${current.doneCount})',
                         style: const TextStyle(fontSize: 12),
                       ),
                       visualDensity: VisualDensity.compact,
@@ -471,7 +571,8 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                           ? 'No tasks yet.\nTap + to add one!'
                           : 'All tasks done! 🎉',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 16),
                     ),
                   )
                 : ReorderableListView.builder(
@@ -500,7 +601,9 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                 left: 16,
                 right: 8,
                 top: 8,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 12),
+                bottom: MediaQuery.of(context).viewInsets.bottom +
+                    MediaQuery.viewPaddingOf(context).bottom +
+                    12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -511,7 +614,8 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
                   child: TextField(
                     controller: _addController,
                     decoration: const InputDecoration(
-                        hintText: 'Quick add task...', border: InputBorder.none),
+                        hintText: 'Quick add task...',
+                        border: InputBorder.none),
                     onSubmitted: (_) => _addItem(),
                     textInputAction: TextInputAction.done,
                   ),
@@ -536,14 +640,19 @@ class _TodoDetailScreenState extends State<TodoDetailScreen> {
 
   String _sortLabel(_SortMode m) {
     switch (m) {
-      case _SortMode.manual:      return 'Manual';
-      case _SortMode.priority:    return 'Priority';
-      case _SortMode.dueDate:     return 'Due date';
-      case _SortMode.alphabetical: return 'A–Z';
+      case _SortMode.manual:
+        return 'Manual';
+      case _SortMode.priority:
+        return 'Priority';
+      case _SortMode.dueDate:
+        return 'Due date';
+      case _SortMode.alphabetical:
+        return 'A–Z';
     }
   }
 
-  PopupMenuItem<_SortMode> _sortMenuItem(_SortMode m, String label, IconData icon) =>
+  PopupMenuItem<_SortMode> _sortMenuItem(
+          _SortMode m, String label, IconData icon) =>
       PopupMenuItem(
         value: m,
         child: Row(children: [
@@ -590,7 +699,10 @@ class _TodoItemTile extends StatelessWidget {
         ),
         child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
       ),
-      onDismissed: (_) => svc.deleteItem(listId, item.id),
+      onDismissed: (_) async {
+        await svc.deleteItem(listId, item.id);
+        if (context.mounted) await _rescheduleTodoReminders(context);
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         decoration: BoxDecoration(
@@ -603,9 +715,13 @@ class _TodoItemTile extends StatelessWidget {
               : null,
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           leading: GestureDetector(
-            onTap: () => svc.toggleItem(listId, item.id),
+            onTap: () async {
+              await svc.toggleItem(listId, item.id);
+              if (context.mounted) await _rescheduleTodoReminders(context);
+            },
             child: Icon(
               item.isDone
                   ? Icons.check_circle_rounded
@@ -628,7 +744,8 @@ class _TodoItemTile extends StatelessWidget {
             children: [
               if (item.priority != TodoPriority.none)
                 Container(
-                  width: 10, height: 10,
+                  width: 10,
+                  height: 10,
                   margin: const EdgeInsets.only(right: 6),
                   decoration: BoxDecoration(
                     color: _priorityColor(item.priority),
@@ -636,7 +753,8 @@ class _TodoItemTile extends StatelessWidget {
                   ),
                 ),
               if (canReorder)
-                const Icon(Icons.drag_handle_rounded, color: Colors.grey, size: 20),
+                const Icon(Icons.drag_handle_rounded,
+                    color: Colors.grey, size: 20),
             ],
           ),
           onTap: onEdit,
@@ -670,10 +788,24 @@ class _TodoItemTile extends StatelessWidget {
       parts.add(Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.flag_rounded, size: 11, color: _priorityColor(item.priority)),
+          Icon(Icons.flag_rounded,
+              size: 11, color: _priorityColor(item.priority)),
           const SizedBox(width: 3),
           Text(_priorityLabel(item.priority),
-              style: TextStyle(fontSize: 11, color: _priorityColor(item.priority))),
+              style: TextStyle(
+                  fontSize: 11, color: _priorityColor(item.priority))),
+        ],
+      ));
+    }
+    if (item.reminderEnabled && item.dueDate != null) {
+      parts.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.notifications_active_rounded,
+              size: 11, color: Colors.orange.shade400),
+          const SizedBox(width: 3),
+          Text('9:00 AM',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade400)),
         ],
       ));
     }
@@ -684,13 +816,15 @@ class _TodoItemTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis));
     }
     if (item.recurrence != Recurrence.none) {
-      final label = item.recurrence.name[0].toUpperCase() + item.recurrence.name.substring(1);
+      final label = item.recurrence.name[0].toUpperCase() +
+          item.recurrence.name.substring(1);
       parts.add(Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.repeat_rounded, size: 11, color: Colors.blue.shade300),
           const SizedBox(width: 3),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.blue.shade300)),
+          Text(label,
+              style: TextStyle(fontSize: 11, color: Colors.blue.shade300)),
         ],
       ));
     }
@@ -714,6 +848,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   TodoPriority _priority = TodoPriority.none;
   DateTime? _dueDate;
   Recurrence _recurrence = Recurrence.none;
+  bool _reminderEnabled = false;
 
   @override
   void dispose() {
@@ -740,7 +875,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
         dueDate: _dueDate,
         priority: _priority,
         note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-        recurrence: _recurrence);
+        recurrence: _recurrence,
+        reminderEnabled: _reminderEnabled && _dueDate != null);
+    if (!mounted) return;
+    await _rescheduleTodoReminders(context);
     if (mounted) Navigator.pop(context);
   }
 
@@ -748,98 +886,128 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('New Task', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _textCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Task name',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _noteCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Note (optional)',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
-          // Priority row
-          const Text('Priority', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(height: 8),
-          Row(
-            children: TodoPriority.values.map((p) {
-              final selected = _priority == p;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(_priorityLabel(p)),
-                  selected: selected,
-                  selectedColor: p == TodoPriority.none
-                      ? Colors.grey.shade200
-                      : _priorityColor(p).withValues(alpha: 0.25),
-                  avatar: p != TodoPriority.none
-                      ? Icon(Icons.flag_rounded, size: 14, color: _priorityColor(p))
-                      : null,
-                  onSelected: (_) => setState(() => _priority = p),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          // Due date row
-          Row(
-            children: [
-              const Text('Due date', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const Spacer(),
-              if (_dueDate != null)
-                TextButton(
-                  onPressed: () => setState(() => _dueDate = null),
-                  child: const Text('Clear'),
-                ),
-              OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                label: Text(_dueDate != null ? _formatDue(_dueDate!) : 'Pick date'),
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.viewPaddingOf(context).bottom +
+              20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('New Task',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _textCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Task name',
+                border: OutlineInputBorder(),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Recurrence row
-          const Text('Repeat', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: Recurrence.values.map((r) {
-              final selected = _recurrence == r;
-              final label = r == Recurrence.none ? 'None' : r.name[0].toUpperCase() + r.name.substring(1);
-              return ChoiceChip(
-                label: Text(label),
-                selected: selected,
-                onSelected: (_) => setState(() => _recurrence = r),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _submit,
-              child: const Text('Add Task'),
+              onSubmitted: (_) => _submit(),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Note (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            // Priority row
+            const Text('Priority',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: TodoPriority.values.map((p) {
+                final selected = _priority == p;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(_priorityLabel(p)),
+                    selected: selected,
+                    selectedColor: p == TodoPriority.none
+                        ? Colors.grey.shade200
+                        : _priorityColor(p).withValues(alpha: 0.25),
+                    avatar: p != TodoPriority.none
+                        ? Icon(Icons.flag_rounded,
+                            size: 14, color: _priorityColor(p))
+                        : null,
+                    onSelected: (_) => setState(() => _priority = p),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            // Due date row
+            Row(
+              children: [
+                const Text('Due date',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Spacer(),
+                if (_dueDate != null)
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _dueDate = null;
+                      _reminderEnabled = false;
+                    }),
+                    child: const Text('Clear'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                  label: Text(
+                      _dueDate != null ? _formatDue(_dueDate!) : 'Pick date'),
+                ),
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.notifications_active_outlined),
+              title: const Text('Remind me'),
+              subtitle: Text(_dueDate == null
+                  ? 'Pick a due date first'
+                  : 'At 9:00 AM on the due date'),
+              value: _reminderEnabled && _dueDate != null,
+              onChanged: _dueDate == null
+                  ? null
+                  : (value) => setState(() => _reminderEnabled = value),
+            ),
+            const SizedBox(height: 8),
+            // Recurrence row
+            const Text('Repeat',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: Recurrence.values.map((r) {
+                final selected = _recurrence == r;
+                final label = r == Recurrence.none
+                    ? 'None'
+                    : r.name[0].toUpperCase() + r.name.substring(1);
+                return ChoiceChip(
+                  label: Text(label),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _recurrence = r),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submit,
+                child: const Text('Add Task'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -861,6 +1029,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
   late TodoPriority _priority;
   DateTime? _dueDate;
   late Recurrence _recurrence;
+  late bool _reminderEnabled;
 
   @override
   void initState() {
@@ -870,6 +1039,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     _priority = widget.item.priority;
     _dueDate = widget.item.dueDate;
     _recurrence = widget.item.recurrence;
+    _reminderEnabled = widget.item.reminderEnabled;
   }
 
   @override
@@ -894,14 +1064,18 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     if (text.isEmpty) return;
     final svc = Provider.of<TodoService>(context, listen: false);
     await svc.updateItem(
-      widget.listId, widget.item.id,
+      widget.listId,
+      widget.item.id,
       text: text,
       dueDate: _dueDate,
       clearDueDate: _dueDate == null && widget.item.dueDate != null,
       priority: _priority,
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       recurrence: _recurrence,
+      reminderEnabled: _reminderEnabled && _dueDate != null,
     );
+    if (!mounted) return;
+    await _rescheduleTodoReminders(context);
     if (mounted) Navigator.pop(context);
   }
 
@@ -909,83 +1083,118 @@ class _EditItemSheetState extends State<_EditItemSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Edit Task', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _textCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: 'Task name', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _noteCtrl,
-            decoration: const InputDecoration(hintText: 'Note (optional)', border: OutlineInputBorder()),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
-          const Text('Priority', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(height: 8),
-          Row(
-            children: TodoPriority.values.map((p) {
-              final selected = _priority == p;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(_priorityLabel(p)),
-                  selected: selected,
-                  selectedColor: p == TodoPriority.none
-                      ? Colors.grey.shade200
-                      : _priorityColor(p).withValues(alpha: 0.25),
-                  avatar: p != TodoPriority.none
-                      ? Icon(Icons.flag_rounded, size: 14, color: _priorityColor(p))
-                      : null,
-                  onSelected: (_) => setState(() => _priority = p),
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.viewPaddingOf(context).bottom +
+              20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Edit Task',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _textCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                  hintText: 'Task name', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteCtrl,
+              decoration: const InputDecoration(
+                  hintText: 'Note (optional)', border: OutlineInputBorder()),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            const Text('Priority',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: TodoPriority.values.map((p) {
+                final selected = _priority == p;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(_priorityLabel(p)),
+                    selected: selected,
+                    selectedColor: p == TodoPriority.none
+                        ? Colors.grey.shade200
+                        : _priorityColor(p).withValues(alpha: 0.25),
+                    avatar: p != TodoPriority.none
+                        ? Icon(Icons.flag_rounded,
+                            size: 14, color: _priorityColor(p))
+                        : null,
+                    onSelected: (_) => setState(() => _priority = p),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text('Due date',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Spacer(),
+                if (_dueDate != null)
+                  TextButton(
+                      onPressed: () => setState(() {
+                            _dueDate = null;
+                            _reminderEnabled = false;
+                          }),
+                      child: const Text('Clear')),
+                OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                  label: Text(
+                      _dueDate != null ? _formatDue(_dueDate!) : 'Pick date'),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Text('Due date', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const Spacer(),
-              if (_dueDate != null)
-                TextButton(onPressed: () => setState(() => _dueDate = null), child: const Text('Clear')),
-              OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                label: Text(_dueDate != null ? _formatDue(_dueDate!) : 'Pick date'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Recurrence row
-          const Text('Repeat', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: Recurrence.values.map((r) {
-              final selected = _recurrence == r;
-              final label = r == Recurrence.none ? 'None' : r.name[0].toUpperCase() + r.name.substring(1);
-              return ChoiceChip(
-                label: Text(label),
-                selected: selected,
-                onSelected: (_) => setState(() => _recurrence = r),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(onPressed: _save, child: const Text('Save')),
-          ),
-        ],
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.notifications_active_outlined),
+              title: const Text('Remind me'),
+              subtitle: Text(_dueDate == null
+                  ? 'Pick a due date first'
+                  : 'At 9:00 AM on the due date'),
+              value: _reminderEnabled && _dueDate != null,
+              onChanged: _dueDate == null
+                  ? null
+                  : (value) => setState(() => _reminderEnabled = value),
+            ),
+            const SizedBox(height: 8),
+            // Recurrence row
+            const Text('Repeat',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: Recurrence.values.map((r) {
+                final selected = _recurrence == r;
+                final label = r == Recurrence.none
+                    ? 'None'
+                    : r.name[0].toUpperCase() + r.name.substring(1);
+                return ChoiceChip(
+                  label: Text(label),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _recurrence = r),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child:
+                  ElevatedButton(onPressed: _save, child: const Text('Save')),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1022,7 +1231,9 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
   Future<void> _save() async {
     final svc = Provider.of<TodoService>(context, listen: false);
     await svc.updateList(widget.list.id,
-        title: _titleCtrl.text.trim().isEmpty ? widget.list.title : _titleCtrl.text.trim(),
+        title: _titleCtrl.text.trim().isEmpty
+            ? widget.list.title
+            : _titleCtrl.text.trim(),
         color: _color,
         icon: _icon);
     if (mounted) Navigator.pop(context);
@@ -1035,22 +1246,27 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('List Options', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text('List Options',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 16),
             TextField(
               controller: _titleCtrl,
-              decoration: const InputDecoration(labelText: 'List name', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                  labelText: 'List name', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             // Icon picker
-            const Text('Icon', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Icon',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1059,24 +1275,28 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
                 return GestureDetector(
                   onTap: () => setState(() => _icon = selected ? null : ic),
                   child: Container(
-                    width: 44, height: 44,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: selected
                           ? theme.colorScheme.primary.withValues(alpha: 0.15)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(10),
                       border: selected
-                          ? Border.all(color: theme.colorScheme.primary, width: 2)
+                          ? Border.all(
+                              color: theme.colorScheme.primary, width: 2)
                           : null,
                     ),
-                    child: Center(child: Text(ic, style: const TextStyle(fontSize: 22))),
+                    child: Center(
+                        child: Text(ic, style: const TextStyle(fontSize: 22))),
                   ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
             // Color picker
-            const Text('Color', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Color',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1086,7 +1306,8 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
                 return GestureDetector(
                   onTap: () => setState(() => _color = hex),
                   child: Container(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: col,
                       shape: BoxShape.circle,
@@ -1097,9 +1318,7 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
                         width: selected ? 3 : 1,
                       ),
                     ),
-                    child: selected
-                        ? const Icon(Icons.check, size: 16)
-                        : null,
+                    child: selected ? const Icon(Icons.check, size: 16) : null,
                   ),
                 );
               }).toList(),
@@ -1107,7 +1326,8 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(onPressed: _save, child: const Text('Save')),
+              child:
+                  ElevatedButton(onPressed: _save, child: const Text('Save')),
             ),
             const SizedBox(height: 8),
             if (widget.list.doneCount > 0)
@@ -1127,29 +1347,36 @@ class _ListOptionsSheetState extends State<_ListOptionsSheet> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                label: const Text('Delete list', style: TextStyle(color: Colors.red)),
-                style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+                icon:
+                    const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                label: const Text('Delete list',
+                    style: TextStyle(color: Colors.red)),
+                style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red)),
                 onPressed: () async {
                   final navigator = Navigator.of(context);
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Delete list'),
-                      content: const Text('This will permanently delete the list and all its tasks.'),
+                      content: const Text(
+                          'This will permanently delete the list and all its tasks.'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel')),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          child: const Text('Delete',
+                              style: TextStyle(color: Colors.red)),
                         ),
                       ],
                     ),
                   );
                   if (confirmed == true && mounted) {
                     await svc.deleteList(widget.list.id);
-                    navigator.pop();       // close sheet
-                    navigator.pop();       // go back to list screen
+                    navigator.pop(); // close sheet
+                    navigator.pop(); // go back to list screen
                   }
                 },
               ),

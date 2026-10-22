@@ -9,7 +9,8 @@ import 'package:jot_app/utils/theme_provider.dart';
 import 'widget/stubs.dart';
 
 void main() {
-  testWidgets('app smoke test - login screen renders', (WidgetTester tester) async {
+  testWidgets('app smoke test - login screen renders',
+      (WidgetTester tester) async {
     final auth = StubAuthService();
     await tester.pumpWidget(MultiProvider(
       providers: [

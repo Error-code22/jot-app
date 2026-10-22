@@ -11,6 +11,7 @@ class TodoItem {
   final TodoPriority priority;
   final String? note;
   final Recurrence recurrence;
+  final bool reminderEnabled;
 
   TodoItem({
     required this.id,
@@ -21,6 +22,7 @@ class TodoItem {
     this.priority = TodoPriority.none,
     this.note,
     this.recurrence = Recurrence.none,
+    this.reminderEnabled = false,
   });
 
   TodoItem copyWith({
@@ -30,17 +32,21 @@ class TodoItem {
     bool clearDueDate = false,
     TodoPriority? priority,
     String? note,
+    bool clearNote = false,
     Recurrence? recurrence,
-  }) => TodoItem(
-    id: id,
-    text: text ?? this.text,
-    isDone: isDone ?? this.isDone,
-    createdAt: createdAt,
-    dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
-    priority: priority ?? this.priority,
-    note: note ?? this.note,
-    recurrence: recurrence ?? this.recurrence,
-  );
+    bool? reminderEnabled,
+  }) =>
+      TodoItem(
+        id: id,
+        text: text ?? this.text,
+        isDone: isDone ?? this.isDone,
+        createdAt: createdAt,
+        dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
+        priority: priority ?? this.priority,
+        note: clearNote ? null : (note ?? this.note),
+        recurrence: recurrence ?? this.recurrence,
+        reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      );
 
   bool get isOverdue =>
       !isDone && dueDate != null && dueDate!.isBefore(DateTime.now());
@@ -63,32 +69,34 @@ class TodoItem {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'text': text,
-    'isDone': isDone,
-    'createdAt': createdAt.toIso8601String(),
-    'dueDate': dueDate?.toIso8601String(),
-    'priority': priority.name,
-    'note': note,
-    'recurrence': recurrence.name,
-  };
+        'id': id,
+        'text': text,
+        'isDone': isDone,
+        'createdAt': createdAt.toIso8601String(),
+        'dueDate': dueDate?.toIso8601String(),
+        'priority': priority.name,
+        'note': note,
+        'recurrence': recurrence.name,
+        'reminderEnabled': reminderEnabled,
+      };
 
   factory TodoItem.fromJson(Map<String, dynamic> j) => TodoItem(
-    id: j['id'],
-    text: j['text'],
-    isDone: j['isDone'] ?? false,
-    createdAt: DateTime.parse(j['createdAt']),
-    dueDate: j['dueDate'] != null ? DateTime.parse(j['dueDate']) : null,
-    priority: TodoPriority.values.firstWhere(
-      (p) => p.name == (j['priority'] ?? 'none'),
-      orElse: () => TodoPriority.none,
-    ),
-    note: j['note'] as String?,
-    recurrence: Recurrence.values.firstWhere(
-      (r) => r.name == (j['recurrence'] ?? 'none'),
-      orElse: () => Recurrence.none,
-    ),
-  );
+        id: j['id'],
+        text: j['text'],
+        isDone: j['isDone'] ?? false,
+        createdAt: DateTime.parse(j['createdAt']),
+        dueDate: j['dueDate'] != null ? DateTime.parse(j['dueDate']) : null,
+        priority: TodoPriority.values.firstWhere(
+          (p) => p.name == (j['priority'] ?? 'none'),
+          orElse: () => TodoPriority.none,
+        ),
+        note: j['note'] as String?,
+        recurrence: Recurrence.values.firstWhere(
+          (r) => r.name == (j['recurrence'] ?? 'none'),
+          orElse: () => Recurrence.none,
+        ),
+        reminderEnabled: j['reminderEnabled'] as bool? ?? false,
+      );
 }
 
 class TodoList {
@@ -122,14 +130,15 @@ class TodoList {
     List<TodoItem>? items,
     String? color,
     String? icon,
-  }) => TodoList(
-    id: id,
-    userId: userId,
-    title: title ?? this.title,
-    items: items ?? this.items,
-    createdAt: createdAt,
-    modifiedAt: DateTime.now(),
-    color: color ?? this.color,
-    icon: icon ?? this.icon,
-  );
+  }) =>
+      TodoList(
+        id: id,
+        userId: userId,
+        title: title ?? this.title,
+        items: items ?? this.items,
+        createdAt: createdAt,
+        modifiedAt: DateTime.now(),
+        color: color ?? this.color,
+        icon: icon ?? this.icon,
+      );
 }

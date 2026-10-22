@@ -22,7 +22,8 @@ void main() {
       // Default stubs
       when(mockStorage.initialize()).thenAnswer((_) async {});
       when(mockStorage.getAllNotesForSync(any)).thenAnswer((_) async => []);
-      when(mockStorage.getNotesModifiedAfter(any, any)).thenAnswer((_) async => []);
+      when(mockStorage.getNotesModifiedAfter(any, any))
+          .thenAnswer((_) async => []);
       when(mockStorage.getAllNotes(any)).thenAnswer((_) async => []);
       when(mockRemote.downloadAllNotes(any)).thenAnswer((_) async => []);
       when(mockRemote.watchNotes(any)).thenAnswer((_) => const Stream.empty());
@@ -32,7 +33,9 @@ void main() {
       syncEngine.dispose();
     });
 
-    test('first sync uses full local query, subsequent syncs use incremental query', () async {
+    test(
+        'first sync uses full local query, subsequent syncs use incremental query',
+        () async {
       // First sync: no last-sync timestamp yet, so it uses getAllNotesForSync.
       await syncEngine.syncNow('test-user');
       verify(mockStorage.getAllNotesForSync('test-user')).called(1);
@@ -40,7 +43,8 @@ void main() {
       // After a successful sync the engine tracks _lastSyncTime, so the
       // next sync pushes incrementally via getNotesModifiedAfter.
       await syncEngine.syncNow('test-user');
-      verify(mockStorage.getNotesModifiedAfter(any, 'test-user')).called(greaterThanOrEqualTo(1));
+      verify(mockStorage.getNotesModifiedAfter(any, 'test-user'))
+          .called(greaterThanOrEqualTo(1));
     });
 
     test('syncNow uploads pending notes to remote', () async {

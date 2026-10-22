@@ -20,6 +20,10 @@ class Note {
   final bool isLocked;
   final String? pinHash;
   final List<String> imageIds;
+  final List<String> audioIds;
+
+  /// When true, note content/images are hidden in list previews.
+  final bool hidePreview;
 
   Note({
     required this.id,
@@ -37,9 +41,12 @@ class Note {
     this.isLocked = false,
     this.pinHash,
     this.imageIds = const [],
+    this.audioIds = const [],
+    this.hidePreview = false,
   });
 
   Note copyWith({
+    String? userId,
     String? title,
     String? content,
     DateTime? modifiedAt,
@@ -48,28 +55,36 @@ class Note {
     String? telegramMessageId,
     List<String>? tags,
     String? color,
+    bool clearColor = false,
     bool? isPinned,
     bool? isLocked,
     String? pinHash,
     bool clearPinHash = false,
+    bool clearTelegramMessageId = false,
     List<String>? imageIds,
+    List<String>? audioIds,
+    bool? hidePreview,
   }) {
     return Note(
       id: id,
-      userId: userId,
+      userId: userId ?? this.userId,
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       type: type ?? this.type,
-      telegramMessageId: telegramMessageId ?? this.telegramMessageId,
+      telegramMessageId: clearTelegramMessageId
+          ? null
+          : (telegramMessageId ?? this.telegramMessageId),
       tags: tags ?? this.tags,
-      color: color ?? this.color,
+      color: clearColor ? null : (color ?? this.color),
       isPinned: isPinned ?? this.isPinned,
       isLocked: isLocked ?? this.isLocked,
       pinHash: clearPinHash ? null : (pinHash ?? this.pinHash),
       imageIds: imageIds ?? this.imageIds,
+      audioIds: audioIds ?? this.audioIds,
+      hidePreview: hidePreview ?? this.hidePreview,
     );
   }
 
@@ -105,7 +120,9 @@ class Note {
         other.isPinned == isPinned &&
         other.isLocked == isLocked &&
         other.pinHash == pinHash &&
-        listEquals(other.imageIds, imageIds);
+        listEquals(other.imageIds, imageIds) &&
+        listEquals(other.audioIds, audioIds) &&
+        other.hidePreview == hidePreview;
   }
 
   @override
@@ -125,6 +142,8 @@ class Note {
         isLocked,
         pinHash,
         Object.hashAll(imageIds),
+        Object.hashAll(audioIds),
+        hidePreview,
       );
 
   Map<String, dynamic> toJson() => {
@@ -143,15 +162,19 @@ class Note {
         'isLocked': isLocked,
         'pinHash': pinHash,
         'imageIds': imageIds,
+        'audioIds': audioIds,
+        'hidePreview': hidePreview,
       };
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
         id: json['id'] as String,
         userId: json['userId'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        modifiedAt: DateTime.parse(json['modifiedAt'] as String),
+        title: json['title'] as String? ?? '',
+        content: json['content'] as String? ?? '',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+            DateTime.now(),
+        modifiedAt: DateTime.tryParse(json['modifiedAt'] as String? ?? '') ??
+            DateTime.now(),
         isDeleted: json['isDeleted'] as bool? ?? false,
         type: NoteType.values.firstWhere(
             (e) => e.name == (json['type'] ?? 'text'),
@@ -163,6 +186,8 @@ class Note {
         isLocked: json['isLocked'] as bool? ?? false,
         pinHash: json['pinHash'] as String?,
         imageIds: (json['imageIds'] as List<dynamic>?)?.cast<String>() ?? [],
+        audioIds: (json['audioIds'] as List<dynamic>?)?.cast<String>() ?? [],
+        hidePreview: json['hidePreview'] as bool? ?? false,
       );
 
   /// Convert to Supabase format (snake_case)
@@ -181,16 +206,20 @@ class Note {
         'is_locked': isLocked,
         'pin_hash': pinHash,
         'image_ids': imageIds,
+        'audio_ids': audioIds,
+        'hide_preview': hidePreview,
       };
 
   /// Create from Supabase format (snake_case)
   factory Note.fromSupabase(Map<String, dynamic> json) => Note(
         id: json['id'] as String,
         userId: json['user_id'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        modifiedAt: DateTime.parse(json['modified_at'] as String),
+        title: json['title'] as String? ?? '',
+        content: json['content'] as String? ?? '',
+        createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+            DateTime.now(),
+        modifiedAt: DateTime.tryParse(json['modified_at'] as String? ?? '') ??
+            DateTime.now(),
         isDeleted: json['is_deleted'] as bool? ?? false,
         type: NoteType.values.firstWhere(
           (e) => e.name == (json['type'] ?? 'text'),
@@ -202,6 +231,8 @@ class Note {
         isLocked: json['is_locked'] as bool? ?? false,
         pinHash: json['pin_hash'] as String?,
         imageIds: (json['image_ids'] as List<dynamic>?)?.cast<String>() ?? [],
+        audioIds: (json['audio_ids'] as List<dynamic>?)?.cast<String>() ?? [],
+        hidePreview: json['hide_preview'] as bool? ?? false,
       );
 
   Map<String, dynamic> toSqlite() => {
@@ -220,6 +251,8 @@ class Note {
         'isLocked': isLocked ? 1 : 0,
         'pinHash': pinHash,
         'imageIds': jsonEncode(imageIds),
+        'audioIds': jsonEncode(audioIds),
+        'hidePreview': hidePreview ? 1 : 0,
       };
 
   factory Note.fromSqlite(Map<String, dynamic> map) {
@@ -235,6 +268,13 @@ class Note {
       final imageIdsRaw = map['imageIds'];
       if (imageIdsRaw is String && imageIdsRaw.isNotEmpty) {
         parsedImageIds = (jsonDecode(imageIdsRaw) as List).cast<String>();
+      }
+    } catch (_) {}
+    List<String> parsedAudioIds = [];
+    try {
+      final audioIdsRaw = map['audioIds'];
+      if (audioIdsRaw is String && audioIdsRaw.isNotEmpty) {
+        parsedAudioIds = (jsonDecode(audioIdsRaw) as List).cast<String>();
       }
     } catch (_) {}
     return Note(
@@ -254,6 +294,8 @@ class Note {
       isLocked: (map['isLocked'] as int? ?? 0) == 1,
       pinHash: map['pinHash'] as String?,
       imageIds: parsedImageIds,
+      audioIds: parsedAudioIds,
+      hidePreview: (map['hidePreview'] as int? ?? 0) == 1,
     );
   }
 }

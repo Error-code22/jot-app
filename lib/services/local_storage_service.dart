@@ -25,7 +25,7 @@ class LocalStorageService implements ILocalStorageService {
 
     _database = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_tableName (
@@ -44,10 +44,13 @@ class LocalStorageService implements ILocalStorageService {
             isPinned INTEGER NOT NULL DEFAULT 0,
             isLocked INTEGER NOT NULL DEFAULT 0,
             pinHash TEXT,
-            imageIds TEXT
+            imageIds TEXT,
+            audioIds TEXT,
+            hidePreview INTEGER NOT NULL DEFAULT 0
           )
         ''');
-        await db.execute('CREATE INDEX idx_notes_userId ON $_tableName (userId)');
+        await db
+            .execute('CREATE INDEX idx_notes_userId ON $_tableName (userId)');
         await db.execute('''
           CREATE TABLE $_todosTable (
             id TEXT PRIMARY KEY,
@@ -56,37 +59,56 @@ class LocalStorageService implements ILocalStorageService {
             modifiedAt INTEGER NOT NULL
           )
         ''');
-        await db.execute('CREATE INDEX idx_todos_userId ON $_todosTable (userId)');
+        await db
+            .execute('CREATE INDEX idx_todos_userId ON $_todosTable (userId)');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE $_tableName ADD COLUMN remoteId TEXT');
-          await db.execute('ALTER TABLE $_tableName ADD COLUMN telegramMessageId TEXT');
+          await db.execute(
+              'ALTER TABLE $_tableName ADD COLUMN telegramMessageId TEXT');
         } else if (oldVersion == 2) {
           // Version 2 had remoteId, but might have missed telegramMessageId in some iterations
           try {
-            await db.execute('ALTER TABLE $_tableName ADD COLUMN telegramMessageId TEXT');
+            await db.execute(
+                'ALTER TABLE $_tableName ADD COLUMN telegramMessageId TEXT');
           } catch (e) {
             // Column already exists — safe to ignore.
           }
         }
 
         if (oldVersion < 3) {
-          await db.execute('ALTER TABLE $_tableName ADD COLUMN type TEXT NOT NULL DEFAULT "text"');
+          await db.execute(
+              'ALTER TABLE $_tableName ADD COLUMN type TEXT NOT NULL DEFAULT "text"');
         }
         if (oldVersion < 4) {
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN tags TEXT'); } catch (_) {}
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN color TEXT'); } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE $_tableName ADD COLUMN tags TEXT');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE $_tableName ADD COLUMN color TEXT');
+          } catch (_) {}
         }
         if (oldVersion < 5) {
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
+          try {
+            await db.execute(
+                'ALTER TABLE $_tableName ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0');
+          } catch (_) {}
+          try {
+            await db.execute(
+                'ALTER TABLE $_tableName ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0');
+          } catch (_) {}
         }
         if (oldVersion < 6) {
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN pinHash TEXT'); } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE $_tableName ADD COLUMN pinHash TEXT');
+          } catch (_) {}
         }
         if (oldVersion < 7) {
-          try { await db.execute('ALTER TABLE $_tableName ADD COLUMN imageIds TEXT'); } catch (_) {}
+          try {
+            await db
+                .execute('ALTER TABLE $_tableName ADD COLUMN imageIds TEXT');
+          } catch (_) {}
           await db.execute('''
             CREATE TABLE IF NOT EXISTS $_todosTable (
               id TEXT PRIMARY KEY,
@@ -95,7 +117,18 @@ class LocalStorageService implements ILocalStorageService {
               modifiedAt INTEGER NOT NULL
             )
           ''');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_todos_userId ON $_todosTable (userId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_todos_userId ON $_todosTable (userId)');
+        }
+        if (oldVersion < 8) {
+          try {
+            await db
+                .execute('ALTER TABLE $_tableName ADD COLUMN audioIds TEXT');
+          } catch (_) {}
+          try {
+            await db.execute(
+                'ALTER TABLE $_tableName ADD COLUMN hidePreview INTEGER NOT NULL DEFAULT 0');
+          } catch (_) {}
         }
       },
     );
@@ -151,7 +184,8 @@ class LocalStorageService implements ILocalStorageService {
   }
 
   @override
-  Future<List<Note>> getNotesModifiedAfter(DateTime timestamp, String userId) async {
+  Future<List<Note>> getNotesModifiedAfter(
+      DateTime timestamp, String userId) async {
     final db = await _getDb();
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
@@ -178,10 +212,7 @@ class LocalStorageService implements ILocalStorageService {
     final db = await _getDb();
     await db.update(
       _tableName,
-      {
-        'isDeleted': 1, 
-        'modifiedAt': DateTime.now().millisecondsSinceEpoch
-      },
+      {'isDeleted': 1, 'modifiedAt': DateTime.now().millisecondsSinceEpoch},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -267,7 +298,9 @@ class LocalStorageService implements ILocalStorageService {
       id: row['id'] as String,
       userId: row['userId'] as String,
       title: data['title'] as String,
-      items: itemsJson.map((j) => TodoItem.fromJson(j as Map<String, dynamic>)).toList(),
+      items: itemsJson
+          .map((j) => TodoItem.fromJson(j as Map<String, dynamic>))
+          .toList(),
       createdAt: DateTime.parse(data['createdAt'] as String),
       modifiedAt: DateTime.fromMillisecondsSinceEpoch(row['modifiedAt'] as int),
       color: data['color'] as String?,

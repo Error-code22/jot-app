@@ -84,7 +84,8 @@ class PlatformTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF9E7BFF),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         ),
       ),
@@ -128,13 +129,14 @@ class PlatformTheme {
 
     return baseTheme.copyWith(
       textTheme: _outfitTextTheme(baseTheme.textTheme).copyWith(
-        displayLarge: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: -1.5),
-        displayMedium: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: -0.5),
+        displayLarge:
+            const TextStyle(fontWeight: FontWeight.bold, letterSpacing: -1.5),
+        displayMedium:
+            const TextStyle(fontWeight: FontWeight.bold, letterSpacing: -0.5),
         headlineMedium: const TextStyle(fontWeight: FontWeight.w600),
         titleLarge: const TextStyle(fontWeight: FontWeight.bold),
         bodyLarge: const TextStyle(fontSize: 16),
       ),
-      
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -147,7 +149,6 @@ class PlatformTheme {
           statusBarBrightness: Brightness.light,
         ),
       ),
-      
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         elevation: 4,
         highlightElevation: 8,
@@ -155,7 +156,6 @@ class PlatformTheme {
         backgroundColor: const Color(0xFF673AB7),
         foregroundColor: Colors.white,
       ),
-      
       cardTheme: CardThemeData(
         elevation: 0,
         color: Colors.white,
@@ -164,7 +164,6 @@ class PlatformTheme {
           side: const BorderSide(color: Color(0xFFEEEEEE), width: 1),
         ),
       ),
-      
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -182,16 +181,17 @@ class PlatformTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFF673AB7), width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
-      
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF673AB7),
           foregroundColor: Colors.white,
           elevation: 2,
           shadowColor: const Color(0xFF673AB7).withValues(alpha: 0.4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         ),
       ),
@@ -218,12 +218,10 @@ class PlatformTheme {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
       ),
-      
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
@@ -231,7 +229,6 @@ class PlatformTheme {
           side: const BorderSide(color: Colors.black12),
         ),
       ),
-      
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -239,7 +236,6 @@ class PlatformTheme {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -251,8 +247,8 @@ class PlatformTheme {
 
   /// Desktop theme for Linux
   static ThemeData _getLinuxTheme() => _getWindowsTheme().copyWith(
-    colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-  );
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+      );
 
   /// Desktop theme for macOS
   static ThemeData _getMacOSTheme() {
@@ -271,12 +267,10 @@ class PlatformTheme {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -284,7 +278,6 @@ class PlatformTheme {
           side: const BorderSide(color: Colors.black12),
         ),
       ),
-      
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -292,10 +285,10 @@ class PlatformTheme {
           borderRadius: BorderRadius.circular(10),
         ),
       ),
-
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         ),
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:jot_app/screens/responsive_notes_screen.dart';
+import 'package:jot_app/services/app_settings.dart';
+import 'package:jot_app/services/cloudinary_service.dart';
 import 'package:jot_app/services/i_auth_service.dart';
 import 'package:jot_app/services/note_service.dart';
 import 'package:jot_app/services/sync_engine.dart';
@@ -13,7 +15,8 @@ import '../widget/stubs.dart';
 
 void main() {
   group('Note creation flow integration', () {
-    testWidgets('created note appears in ResponsiveNotesScreen', (tester) async {
+    testWidgets('created note appears in ResponsiveNotesScreen',
+        (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -31,9 +34,14 @@ void main() {
           ChangeNotifierProvider<TodoService>.value(value: todoService),
           ChangeNotifierProvider(create: (_) => ViewModeProvider()),
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => AppSettings()),
+          Provider(
+              create: (_) => CloudinaryService(
+                  edgeFunctionBaseUrl: 'https://example.com')),
           StreamProvider<AuthState>.value(
             value: auth.authStateChanges,
-            initialData: AuthState(status: AuthStatus.authenticated, user: auth.getCurrentUser()),
+            initialData: AuthState(
+                status: AuthStatus.authenticated, user: auth.getCurrentUser()),
           ),
         ],
         child: const MaterialApp(home: ResponsiveNotesScreen()),

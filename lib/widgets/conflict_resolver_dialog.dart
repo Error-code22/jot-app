@@ -40,7 +40,8 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(
                 children: [
@@ -55,16 +56,22 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
                       children: [
                         Text(
                           'Sync Conflict',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onErrorContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         Text(
                           'This note was edited on multiple devices',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onErrorContainer,
+                                  ),
                         ),
                       ],
                     ),
@@ -78,14 +85,15 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
-                  Icon(Icons.note, color: Theme.of(context).colorScheme.primary),
+                  Icon(Icons.note,
+                      color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       local.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -152,7 +160,8 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: Text(_selectedVersion == 0 ? 'Keep Local' : 'Keep Cloud'),
+                      child: Text(
+                          _selectedVersion == 0 ? 'Keep Local' : 'Keep Cloud'),
                     ),
                   ),
                 ],
@@ -194,7 +203,9 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
             Row(
               children: [
                 Icon(
-                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
                   color: Theme.of(context).colorScheme.primary,
                   size: 20,
                 ),
@@ -202,8 +213,8 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const Spacer(),
                 Text(
@@ -241,7 +252,10 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
         decoration: BoxDecoration(
           color: _selectedVersion == 2
               ? Theme.of(context).colorScheme.tertiaryContainer
-              : Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+              : Theme.of(context)
+                  .colorScheme
+                  .tertiaryContainer
+                  .withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _selectedVersion == 2
@@ -253,12 +267,15 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
         child: Row(
           children: [
             Icon(
-              _selectedVersion == 2 ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              _selectedVersion == 2
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
               color: Theme.of(context).colorScheme.tertiary,
               size: 20,
             ),
             const SizedBox(width: 8),
-            Icon(Icons.merge_type, color: Theme.of(context).colorScheme.tertiary),
+            Icon(Icons.merge_type,
+                color: Theme.of(context).colorScheme.tertiary),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -267,8 +284,8 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
                   Text(
                     'Merge Both Versions',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   Text(
                     'Combine content from both devices',
@@ -286,7 +303,7 @@ class _ConflictResolverDialogState extends State<ConflictResolverDialog> {
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    
+
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';

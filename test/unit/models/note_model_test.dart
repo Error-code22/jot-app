@@ -10,7 +10,7 @@ void main() {
     setUp(() {
       testCreatedAt = DateTime(2024, 1, 1, 12, 0, 0);
       testModifiedAt = DateTime(2024, 1, 2, 12, 0, 0);
-      
+
       testNote = Note(
         id: 'test-id-123',
         userId: 'user-456',
@@ -42,7 +42,7 @@ void main() {
           createdAt: DateTime.now(),
           modifiedAt: DateTime.now(),
         );
-        
+
         expect(note.isDeleted, equals(false));
       });
     });
@@ -50,7 +50,7 @@ void main() {
     group('copyWith', () {
       test('creates copy with updated title', () {
         final updated = testNote.copyWith(title: 'Updated Title');
-        
+
         expect(updated.title, equals('Updated Title'));
         expect(updated.id, equals(testNote.id));
         expect(updated.userId, equals(testNote.userId));
@@ -61,7 +61,7 @@ void main() {
 
       test('creates copy with updated content', () {
         final updated = testNote.copyWith(content: 'New content');
-        
+
         expect(updated.content, equals('New content'));
         expect(updated.title, equals(testNote.title));
       });
@@ -69,14 +69,14 @@ void main() {
       test('creates copy with updated modifiedAt', () {
         final newModifiedAt = DateTime(2024, 1, 3, 12, 0, 0);
         final updated = testNote.copyWith(modifiedAt: newModifiedAt);
-        
+
         expect(updated.modifiedAt, equals(newModifiedAt));
         expect(updated.createdAt, equals(testNote.createdAt));
       });
 
       test('creates copy with updated isDeleted', () {
         final updated = testNote.copyWith(isDeleted: true);
-        
+
         expect(updated.isDeleted, equals(true));
       });
 
@@ -88,7 +88,7 @@ void main() {
           modifiedAt: newModifiedAt,
           isDeleted: true,
         );
-        
+
         expect(updated.title, equals('New Title'));
         expect(updated.content, equals('New Content'));
         expect(updated.modifiedAt, equals(newModifiedAt));
@@ -97,7 +97,7 @@ void main() {
 
       test('preserves immutable fields (id, userId, createdAt)', () {
         final updated = testNote.copyWith(title: 'Changed');
-        
+
         expect(updated.id, equals(testNote.id));
         expect(updated.userId, equals(testNote.userId));
         expect(updated.createdAt, equals(testNote.createdAt));
@@ -107,7 +107,7 @@ void main() {
     group('JSON Serialization', () {
       test('toJson converts note to JSON map', () {
         final json = testNote.toJson();
-        
+
         expect(json['id'], equals('test-id-123'));
         expect(json['userId'], equals('user-456'));
         expect(json['title'], equals('Test Note'));
@@ -127,15 +127,17 @@ void main() {
           'modifiedAt': '2024-01-02T12:00:00.000',
           'isDeleted': true,
         };
-        
+
         final note = Note.fromJson(json);
-        
+
         expect(note.id, equals('json-id'));
         expect(note.userId, equals('json-user'));
         expect(note.title, equals('JSON Title'));
         expect(note.content, equals('JSON Content'));
-        expect(note.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
-        expect(note.modifiedAt, equals(DateTime.parse('2024-01-02T12:00:00.000')));
+        expect(
+            note.createdAt, equals(DateTime.parse('2024-01-01T12:00:00.000')));
+        expect(
+            note.modifiedAt, equals(DateTime.parse('2024-01-02T12:00:00.000')));
         expect(note.isDeleted, equals(true));
       });
 
@@ -148,16 +150,16 @@ void main() {
           'createdAt': '2024-01-01T12:00:00.000',
           'modifiedAt': '2024-01-02T12:00:00.000',
         };
-        
+
         final note = Note.fromJson(json);
-        
+
         expect(note.isDeleted, equals(false));
       });
 
       test('JSON round trip preserves all data', () {
         final json = testNote.toJson();
         final restored = Note.fromJson(json);
-        
+
         expect(restored, equals(testNote));
       });
     });
@@ -165,20 +167,22 @@ void main() {
     group('SQLite Serialization', () {
       test('toSqlite converts note to SQLite map', () {
         final sqlite = testNote.toSqlite();
-        
+
         expect(sqlite['id'], equals('test-id-123'));
         expect(sqlite['userId'], equals('user-456'));
         expect(sqlite['title'], equals('Test Note'));
         expect(sqlite['content'], equals('This is test content'));
-        expect(sqlite['createdAt'], equals(testCreatedAt.millisecondsSinceEpoch));
-        expect(sqlite['modifiedAt'], equals(testModifiedAt.millisecondsSinceEpoch));
+        expect(
+            sqlite['createdAt'], equals(testCreatedAt.millisecondsSinceEpoch));
+        expect(sqlite['modifiedAt'],
+            equals(testModifiedAt.millisecondsSinceEpoch));
         expect(sqlite['isDeleted'], equals(0));
       });
 
       test('toSqlite converts isDeleted true to 1', () {
         final deletedNote = testNote.copyWith(isDeleted: true);
         final sqlite = deletedNote.toSqlite();
-        
+
         expect(sqlite['isDeleted'], equals(1));
       });
 
@@ -192,9 +196,9 @@ void main() {
           'modifiedAt': testModifiedAt.millisecondsSinceEpoch,
           'isDeleted': 1,
         };
-        
+
         final note = Note.fromSqlite(sqlite);
-        
+
         expect(note.id, equals('sqlite-id'));
         expect(note.userId, equals('sqlite-user'));
         expect(note.title, equals('SQLite Title'));
@@ -214,16 +218,16 @@ void main() {
           'modifiedAt': DateTime.now().millisecondsSinceEpoch,
           'isDeleted': 0,
         };
-        
+
         final note = Note.fromSqlite(sqlite);
-        
+
         expect(note.isDeleted, equals(false));
       });
 
       test('SQLite round trip preserves all data', () {
         final sqlite = testNote.toSqlite();
         final restored = Note.fromSqlite(sqlite);
-        
+
         expect(restored, equals(testNote));
       });
     });
@@ -239,7 +243,7 @@ void main() {
           modifiedAt: testModifiedAt,
           isDeleted: false,
         );
-        
+
         final note2 = Note(
           id: 'id',
           userId: 'user',
@@ -249,7 +253,7 @@ void main() {
           modifiedAt: testModifiedAt,
           isDeleted: false,
         );
-        
+
         expect(note1, equals(note2));
         expect(note1.hashCode, equals(note2.hashCode));
       });
@@ -257,7 +261,7 @@ void main() {
       test('notes with different data are not equal', () {
         final note1 = testNote;
         final note2 = testNote.copyWith(title: 'Different');
-        
+
         expect(note1, isNot(equals(note2)));
       });
     });
@@ -272,10 +276,10 @@ void main() {
           createdAt: DateTime.now(),
           modifiedAt: DateTime.now(),
         );
-        
+
         expect(note.title, equals(''));
         expect(note.content, equals(''));
-        
+
         // Test serialization
         final json = note.toJson();
         final restored = Note.fromJson(json);
@@ -292,10 +296,10 @@ void main() {
           createdAt: DateTime.now(),
           modifiedAt: DateTime.now(),
         );
-        
+
         final json = note.toJson();
         final restored = Note.fromJson(json);
-        
+
         expect(restored.title, equals(note.title));
         expect(restored.content, equals(note.content));
       });
@@ -310,10 +314,10 @@ void main() {
           createdAt: DateTime.now(),
           modifiedAt: DateTime.now(),
         );
-        
+
         final sqlite = note.toSqlite();
         final restored = Note.fromSqlite(sqlite);
-        
+
         expect(restored.content, equals(longContent));
         expect(restored.content.length, equals(10000));
       });
