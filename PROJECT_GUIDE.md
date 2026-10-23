@@ -194,6 +194,9 @@ originally and later marked applied with `supabase migration repair --status app
 
 `UpdateService.checkForUpdates()` tries sources in order:
 
+> **Current deployment:** GitHub Releases only (public repo `Error-code22/jot-app`). The
+> Supabase manifest exists as a fallback but no rows with download URLs are published.
+
 1. **GitHub Releases** — `GET /repos/{owner}/{repo}/releases/latest` for
    `AppConfig.githubReleasesRepo`. Tag → version, body → notes, platform-matched asset
    (`.apk`, `.exe`/`.zip`, `.dmg`/`.zip`, `.AppImage`/`.deb`/`.tar.gz`), plus asset `size`

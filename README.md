@@ -65,6 +65,10 @@ The app follows a service-based architecture with dependency injection via Provi
 
 ### Publishing a release
 
+> **Current setup:** updates are published as **GitHub Releases only** (repository
+> `Error-code22/jot-app`, which must stay public). The Supabase manifest below is an optional
+> fallback and has no downloadable rows published.
+
 The app checks for updates in two places, in order:
 
 1. **GitHub Releases (preferred)** — the repository named by
