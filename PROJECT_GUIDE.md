@@ -244,8 +244,23 @@ and `REQUEST_INSTALL_PACKAGES`.
 
 ## 10. Known limitations / roadmap
 
+### Deferred fixes (after current debugging)
+
+- **Todo page is missing a visible add button.** The notes page has a prominent `+`
+  (FAB), but `todo_screen.dart` has **no `FloatingActionButton` and no `+` in the
+  `AppBar`** — adding a task only happens through the bottom "Quick add task…" bar
+  (`_addController` + `_addItem`, with the `tune` icon opening `_AddItemSheet`). The
+  empty state at line ~571 even says *"No tasks yet. Tap + to add one!"* while no `+`
+  exists, so the hint is wrong. Fix: add a FAB consistent with the notes page (and keep
+  or replace the bottom bar), then correct the empty-state copy.
+
+### Other limitations
+
 - In-app updates need the GitHub repository to stay **public**; otherwise the Supabase
   manifest is used (publishing still works).
+- The release APK is **debug-signed** (`signingConfig signingConfigs.debug`). Fine for
+  personal/sideload use, not for the Play Store; a proper `release` keystore is still to
+  be set up.
 - iOS has not been built/verified from this Windows machine.
 - Web is preview-only (SharedPreferences storage).
 - PIN hash is weak by design (use biometrics for real protection).
